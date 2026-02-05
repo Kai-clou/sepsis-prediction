@@ -1,0 +1,105 @@
+# Data Files (too large for git)
+data/raw/
+data/processed/
+*.h5
+*.hdf5
+*.csv
+*.csv.gz
+*.psv
+*.parquet
+
+# Model Artifacts (weights are too large for git)
+results/checkpoints/
+results/predictions/
+mlruns/
+mlartifacts/
+*.pth
+*.pkl
+*.pt
+*.onnx
+
+# Keep model results JSONs (small, useful for tracking)
+!models/**/results.json
+!models/**/history.json
+!models/**/complete_metrics.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb_checkpoints
+
+# Environment
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDEs & Tools
+.vscode/
+.idea/
+.claude/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# MLflow
+mlruns/
+mlruns.db
+
+# Temporary Files
+*.tmp
+*.bak
+*.swp
+*~
+
+# OS Files
+Thumbs.db
+.DS_Store
+
+# Credentials
+*.key
+*.pem
+credentials.json
+
+# Large Files
+*.zip
+*.tar.gz
+*.7z
+
+# Pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Documentation Build
+docs/_build/
+site/

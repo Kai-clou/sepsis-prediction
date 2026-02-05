@@ -1,0 +1,318 @@
+# Training Configuration for Antigravity Multi-Agent System
+
+# ============================================================================
+# TRAINING PARAMETERS
+# ============================================================================
+
+training:
+  max_epochs: 100
+  batch_size: 256
+  num_workers: 4          # DataLoader workers (adjust based on CPU cores)
+  pin_memory: true        # Faster data transfer to GPU
+
+  # Mixed precision training (for faster training on modern GPUs)
+  use_amp: true           # Automatic Mixed Precision
+
+  # Gradient accumulation (effective batch size = batch_size * accumulation_steps)
+  gradient_accumulation_steps: 1
+
+  # Validation frequency
+  validate_every_n_epochs: 1
+
+  # Checkpointing frequency
+  checkpoint_every_n_epochs: 5
+
+# ============================================================================
+# OPTIMIZER
+# ============================================================================
+
+optimizer:
+  type: "AdamW"           # Options: Adam, AdamW, SGD, RMSprop
+  learning_rate: 0.001
+  weight_decay: 0.0001    # L2 regularization
+
+  # Adam/AdamW-specific
+  betas: [0.9, 0.999]
+  eps: 1.0e-08
+  amsgrad: false
+
+  # SGD-specific (if using SGD)
+  momentum: 0.9
+  nesterov: true
+
+# ============================================================================
+# LEARNING RATE SCHEDULER
+# ============================================================================
+
+scheduler:
+  type: "ReduceLROnPlateau"  # Options: ReduceLROnPlateau, CosineAnnealingLR, StepLR, ExponentialLR
+
+  # ReduceLROnPlateau parameters
+  mode: "max"             # "max" for metrics like AUROC, "min" for loss
+  factor: 0.5             # Reduce LR by factor
+  patience: 5             # Epochs with no improvement before reducing LR
+  min_lr: 0.00001         # Minimum learning rate
+  threshold: 0.0001       # Threshold for measuring improvement
+  threshold_mode: "rel"   # "rel" for relative, "abs" for absolute
+  cooldown: 0             # Epochs to wait after LR reduction
+
+  # CosineAnnealingLR parameters (if using)
+  T_max: 50               # Maximum number of iterations
+  eta_min: 0.00001        # Minimum learning rate
+
+  # StepLR parameters (if using)
+  step_size: 30           # Period of learning rate decay
+  gamma: 0.1              # Multiplicative factor of learning rate decay
+
+# ============================================================================
+# LOSS FUNCTION
+# ============================================================================
+
+loss:
+  # Multi-task learning weights
+  classification_weight: 0.7
+  tte_weight: 0.3
+
+  # Classification loss
+  classification_loss: "bce"  # Options: bce, focal_loss, weighted_bce
+
+  # Class imbalance handling
+  pos_class_weight: 12.0      # Weight for positive class (adjust based on class ratio)
+
+  # Focal loss parameters (if using focal_loss)
+  focal_loss:
+    enabled: false
+    alpha: 0.25             # Weighting factor for class balance
+    gamma: 2.0              # Focusing parameter (higher = focus more on hard examples)
+
+  # Time-to-event loss
+  tte_loss: "mse"            # Options: mse, huber, smooth_l1
+  tte_masked: true            # Only calculate TTE loss for positive samples
+
+# ============================================================================
+# REGULARIZATION
+# ============================================================================
+
+regularization:
+  # Gradient clipping
+  gradient_clip_norm: 1.0
+  gradient_clip_by_value: null
+
+  # Dropout (specified in model_config.yaml)
+
+  # Weight decay (specified in optimizer)
+
+  # Label smoothing (optional)
+  label_smoothing: 0.0     # 0 = no smoothing, 0.1 = smooth by 10%
+
+# ============================================================================
+# EARLY STOPPING
+# ============================================================================
+
+early_stopping:
+  enabled: true
+  patience: 10            # Epochs with no improvement before stopping
+  monitor: "val_auroc"    # Metric to monitor: val_auroc, val_auprc, val_loss
+  mode: "max"             # "max" for metrics like AUROC, "min" for loss
+  min_delta: 0.0001       # Minimum change to qualify as improvement
+
+  restore_best_weights: true  # Restore model to best checkpoint after training
+
+# ============================================================================
+# CHECKPOINTING
+# ============================================================================
+
+checkpointing:
+  enabled: true
+  save_best: true         # Save model with best validation performance
+  save_last: true         # Save model from last epoch
+  save_frequency: 5       # Save checkpoint every N epochs
+
+  checkpoint_dir: "results/checkpoints/"
+
+  # What to save in checkpoint
+  save_optimizer: true
+  save_scheduler: true
+  save_epoch: true
+  save_best_metric: true
+
+# ============================================================================
+# MLFLOW EXPERIMENT TRACKING
+# ============================================================================
+
+mlflow:
+  enabled: true
+  experiment_name: "antigravity_multi_agent"
+  tracking_uri: "./mlruns"
+
+  # Run naming
+  run_name_prefix: "run"
+  add_timestamp: true
+
+  # What to log
+  log_params: true        # Log hyperparameters
+  log_metrics: true       # Log training/validation metrics
+  log_models: true        # Log trained models
+  log_artifacts: true     # Log plots, configs, etc.
+
+  # Logging frequency
+  log_every_n_steps: 10
+
+  # Artifacts to log
+  log_config_files: true
+  log_plots: true
+  log_confusion_matrix: true
+  log_roc_curve: true
+  log_pr_curve: true
+
+# ============================================================================
+# METRICS TO TRACK
+# ============================================================================
+
+metrics:
+  # Classification metrics
+  - "auroc"               # Area Under ROC Curve
+  - "auprc"               # Area Under Precision-Recall Curve
+  - "accuracy"
+  - "precision"
+  - "recall"
+  - "f1_score"
+  - "specificity"
+  - "sensitivity_at_90_specificity"
+
+  # Loss metrics
+  - "classification_loss"
+  - "tte_loss"
+  - "total_loss"
+
+  # Time-to-event metrics
+  - "tte_mae"             # Mean Absolute Error for TTE
+  - "tte_rmse"            # Root Mean Squared Error for TTE
+
+  # PhysioNet challenge metric
+  - "utility_score"       # Official CinC 2019 utility score
+
+  # Calibration
+  - "brier_score"         # Measure of calibration
+  - "expected_calibration_error"  # ECE
+
+# ============================================================================
+# REPRODUCIBILITY
+# ============================================================================
+
+reproducibility:
+  random_seed: 42
+  deterministic: true     # Use deterministic algorithms (may be slower)
+  benchmark: false        # If True, cudnn.benchmark = True (faster but non-deterministic)
+
+  # Set seeds for
+  numpy_seed: 42
+  torch_seed: 42
+  cuda_seed: 42
+
+# ============================================================================
+# DEVICE CONFIGURATION
+# ============================================================================
+
+device:
+  use_cuda: true
+  cuda_device: 0          # GPU device index (if multiple GPUs available)
+
+  # Multi-GPU training (if available)
+  multi_gpu: false
+  gpu_ids: [0, 1]         # List of GPU IDs to use
+
+# ============================================================================
+# DATA LOADING
+# ============================================================================
+
+data_loading:
+  # Data paths
+  train_data_path: "data/processed/mimic_harmonized/train/"
+  val_data_path: "data/processed/mimic_harmonized/val/"
+  test_data_path: "data/processed/mimic_harmonized/test/"
+
+  # Data augmentation (optional - for time-series)
+  augmentation:
+    enabled: false
+    methods:
+      - "time_warp"
+      - "magnitude_warp"
+      - "jittering"
+
+    time_warp_factor: 0.1
+    magnitude_warp_factor: 0.1
+    jittering_std: 0.05
+
+  # Class balancing
+  class_balancing:
+    enabled: true
+    method: "oversampling"  # Options: oversampling, undersampling, weighted_sampling
+    oversample_ratio: 1.0   # Ratio of minority to majority class
+
+# ============================================================================
+# LOGGING & DEBUGGING
+# ============================================================================
+
+logging:
+  log_level: "INFO"       # Options: DEBUG, INFO, WARNING, ERROR
+  log_file: "logs/training.log"
+  log_to_console: true
+
+  # Progress bars
+  use_tqdm: true
+  tqdm_ncols: 100
+
+debugging:
+  # Debug mode (faster training, smaller datasets)
+  debug_mode: false
+  debug_batches: 10       # Only train on N batches if debug_mode=True
+
+  # Profiling
+  profile: false
+  profile_output: "logs/profiling.txt"
+
+  # Gradient checking
+  check_gradients: false
+
+  # Memory profiling
+  profile_memory: false
+
+# ============================================================================
+# HYPERPARAMETER TUNING (Optional - using Optuna)
+# ============================================================================
+
+hyperparameter_tuning:
+  enabled: false
+
+  # Optuna configuration
+  study_name: "antigravity_hpo"
+  n_trials: 50
+  direction: "maximize"   # "maximize" for AUROC, "minimize" for loss
+  metric: "val_auroc"
+
+  # Search space
+  search_space:
+    learning_rate: [0.0001, 0.01]  # Log-uniform
+    batch_size: [128, 256, 512]     # Categorical
+    dropout: [0.1, 0.5]             # Uniform
+    hidden_size: [64, 256]          # Integer
+    num_layers: [1, 3]              # Integer
+
+  # Pruning
+  pruning:
+    enabled: true
+    pruner: "MedianPruner"  # Options: MedianPruner, HyperbandPruner
+    n_startup_trials: 5
+    n_warmup_steps: 5
+
+# ============================================================================
+# DISTRIBUTED TRAINING (Optional - for multi-node setups)
+# ============================================================================
+
+distributed:
+  enabled: false
+  backend: "nccl"         # Options: nccl, gloo, mpi
+  world_size: 1
+  rank: 0
+  init_method: "tcp://localhost:23456"

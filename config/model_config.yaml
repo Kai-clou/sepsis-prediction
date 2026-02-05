@@ -1,0 +1,177 @@
+# Model Configuration for Antigravity Multi-Agent System
+
+# ============================================================================
+# MULTI-AGENT ARCHITECTURE
+# ============================================================================
+
+agent_a_temporal:
+  type: "BiLSTM"
+  description: "Bidirectional LSTM for time-series vital signs and labs"
+
+  input_size: 40          # 40 CinC canonical variables
+  hidden_size: 128
+  num_layers: 2
+  dropout: 0.3
+  bidirectional: true
+
+  attention:
+    use_attention: true
+    attention_type: "multihead"  # Options: multihead, additive, dot_product
+    num_heads: 4
+    attention_dropout: 0.1
+
+  # Layer normalization
+  use_layer_norm: true
+
+  # Recurrent dropout (applied to recurrent connections)
+  recurrent_dropout: 0.0  # Usually 0 for LSTM
+
+agent_b_static:
+  type: "FFN"
+  description: "Feed-forward network for static demographics"
+
+  input_size: 15          # Demographics (age, sex, admission type, etc.)
+  hidden_layers: [64, 32]
+  dropout: 0.2
+  activation: "relu"
+
+  # Batch normalization after each layer
+  use_batch_norm: true
+
+  # Dropout after activation (before next layer)
+  dropout_after_activation: true
+
+fusion:
+  description: "Fusion layer combining Agent A and B representations"
+
+  # Calculated: agent_a.output_size + agent_b.output_size
+  # For BiLSTM with hidden=128: 128*2 = 256
+  # For FFN with last layer=32: 32
+  # Total input: 256 + 32 = 288
+
+  hidden_size: 128
+  dropout: 0.3
+  activation: "relu"
+  use_batch_norm: true
+
+classification_head:
+  description: "Binary sepsis prediction head"
+
+  hidden_layers: [64]
+  dropout: 0.15
+  activation: "relu"
+
+  # Output layer
+  output_activation: "sigmoid"  # Binary classification
+  use_batch_norm: true
+
+agent_c_tte:
+  description: "Time-to-event regression head (auxiliary task)"
+
+  hidden_layers: [64]
+  dropout: 0.2
+  activation: "relu"
+
+  # Output layer
+  output_size: 1
+  output_activation: "sigmoid"  # Normalize to [0,1] range
+
+  # Masking (only calculate loss for sepsis-positive cases)
+  use_masking: true
+
+# ============================================================================
+# BASELINE MODEL CONFIGURATIONS
+# ============================================================================
+
+baseline_single_lstm:
+  description: "Single LSTM baseline (no multi-agent architecture)"
+
+  input_size: 40          # Same as Agent A
+  hidden_size: 128
+  num_layers: 2
+  dropout: 0.3
+  bidirectional: true
+
+  # Classification head
+  fc_hidden_layers: [64]
+  fc_dropout: 0.15
+
+baseline_xgboost:
+  description: "XGBoost with engineered features"
+
+  # XGBoost hyperparameters
+  max_depth: 6
+  learning_rate: 0.1
+  n_estimators: 100
+  subsample: 0.8
+  colsample_bytree: 0.8
+  min_child_weight: 1
+  gamma: 0
+
+  # Objective function
+  objective: "binary:logistic"
+  eval_metric: "auc"
+
+  # Regularization
+  reg_alpha: 0.1
+  reg_lambda: 1.0
+
+  # Class imbalance handling
+  scale_pos_weight: 12.0  # Adjust based on actual class ratio
+
+baseline_logistic_regression:
+  description: "Logistic regression with most recent values"
+
+  penalty: "l2"
+  C: 1.0                  # Inverse regularization strength
+  solver: "liblinear"
+  max_iter: 1000
+
+  # Class imbalance handling
+  class_weight: "balanced"
+
+# ============================================================================
+# MODEL ENSEMBLE (Optional - Future Work)
+# ============================================================================
+
+ensemble:
+  enabled: false
+
+  models:
+    - "multi_agent"
+    - "single_lstm"
+    - "xgboost"
+
+  ensemble_method: "weighted_average"  # Options: voting, weighted_average, stacking
+  weights: [0.5, 0.3, 0.2]  # Weights for weighted_average
+
+# ============================================================================
+# INITIALIZATION
+# ============================================================================
+
+initialization:
+  # Weight initialization
+  lstm_weight_init: "xavier_uniform"
+  ffn_weight_init: "kaiming_normal"
+
+  # Bias initialization
+  bias_init: "zeros"
+
+  # LSTM-specific
+  forget_gate_bias: 1.0  # Initialize forget gate bias to 1 (helps gradient flow)
+
+# ============================================================================
+# REGULARIZATION
+# ============================================================================
+
+regularization:
+  # Dropout rates already specified in agent configs
+
+  # Weight decay (L2 regularization)
+  weight_decay: 0.0001
+
+  # Gradient clipping
+  gradient_clip_norm: 1.0
+  gradient_clip_value: null  # If specified, clips by value instead of norm
+
+  # Early stopping (see training_config.yaml)
