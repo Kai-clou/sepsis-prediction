@@ -31,9 +31,26 @@ Patient Data (24h window)
 | AUROC | 0.7263 |
 | AUPRC | 0.6536 |
 | Sensitivity | 92.3% |
+| Specificity | 34.0% |
 | F1 Score | 0.6709 |
 
-Outperforms XGBoost (+5.6% AUROC), clinical scores like qSOFA and SIRS, on the same test data.
+### vs. Traditional ML (same data, same split)
+
+| Model | AUROC | AUPRC |
+|-------|-------|-------|
+| Logistic Regression | ~0.65 | ~0.50 |
+| Random Forest | ~0.67 | ~0.53 |
+| XGBoost | 0.6876 | 0.5480 |
+| **Multi-Agent (ours)** | **0.7263** | **0.6536** |
+
+### vs. Clinical Scores (published benchmarks)
+
+| Score | AUROC | Source |
+|-------|-------|--------|
+| SIRS | 0.64-0.68 | Singer 2016 |
+| qSOFA | 0.66-0.70 | Seymour 2016 |
+| MEWS | 0.67-0.72 | Subbe 2001 |
+| **Multi-Agent (ours)** | **0.7263** | This project |
 
 ## Project Structure
 
