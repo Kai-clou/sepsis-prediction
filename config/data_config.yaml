@@ -1,0 +1,328 @@
+# Data Configuration for Antigravity Sepsis Prediction System
+
+# ============================================================================
+# DATA SOURCES
+# ============================================================================
+
+mimic_iv:
+  path: "data/raw/mimic_iv/"
+  version: "2.2"
+  description: "MIMIC-IV Database from MIT Laboratory for Computational Physiology"
+
+  required_tables:
+    - chartevents        # Vital signs
+    - labevents          # Laboratory measurements
+    - prescriptions      # Medication orders
+    - microbiologyevents # Culture orders
+    - patients           # Demographics
+    - admissions         # Hospital admissions
+    - icustays          # ICU stays
+    - d_items            # Item definitions (metadata)
+    - d_labitems         # Lab item definitions
+
+cinc_2019:
+  path: "data/raw/cinc2019/"
+  description: "PhysioNet/Computing in Cardiology Challenge 2019"
+  training_sets:
+    - "training_setA"
+    - "training_setB"
+  test_set: "test"
+  num_variables: 40
+  format: "psv"  # Pipe-separated values
+
+# ============================================================================
+# VARIABLE HARMONIZATION (MIMIC-IV itemid → CinC Variable Mapping)
+# ============================================================================
+
+variable_mapping:
+  # -------------------------
+  # Vital Signs (chartevents)
+  # -------------------------
+  HR:                     # Heart Rate (bpm)
+    - 220045
+
+  O2Sat:                  # Oxygen Saturation (%)
+    - 220277
+    - 220227
+
+  Temp:                   # Temperature (°C) - REQUIRES UNIT CONVERSION
+    - 223762              # Temperature Celsius
+    - 223761              # Temperature Fahrenheit (convert!)
+
+  SBP:                    # Systolic Blood Pressure (mmHg)
+    - 220179              # Non-Invasive Blood Pressure systolic
+    - 220050              # Arterial Blood Pressure systolic
+
+  MAP:                    # Mean Arterial Pressure (mmHg)
+    - 220052              # Arterial Blood Pressure mean
+    - 220181              # Non Invasive Blood Pressure mean
+    - 225312              # ART BP mean
+
+  DBP:                    # Diastolic Blood Pressure (mmHg)
+    - 220180              # Non-Invasive Blood Pressure diastolic
+    - 220051              # Arterial Blood Pressure diastolic
+
+  Resp:                   # Respiratory Rate (breaths/min)
+    - 220210              # Respiratory Rate
+    - 224690              # Respiratory Rate (Total)
+
+  # -------------------------
+  # Laboratory Values (labevents)
+  # -------------------------
+  Lactate:                # Arterial Lactate (mmol/L)
+    - 50813
+
+  Creatinine:             # Serum Creatinine (mg/dL) - Renal SOFA component
+    - 50912
+
+  Bilirubin_total:        # Total Bilirubin (mg/dL) - Liver SOFA component
+    - 50885
+
+  Platelets:              # Platelet Count (×10³/μL) - Coagulation SOFA component
+    - 51265
+
+  WBC:                    # White Blood Cell Count (×10³/μL)
+    - 51301
+    - 51300
+
+  Glucose:                # Glucose (mg/dL)
+    - 50809              # Glucose (serum)
+    - 50931              # Glucose (whole blood)
+
+  BUN:                    # Blood Urea Nitrogen (mg/dL)
+    - 51006
+
+  Potassium:              # Potassium (mEq/L)
+    - 50822
+    - 50971
+
+  Sodium:                 # Sodium (mEq/L)
+    - 50824
+    - 50983
+
+  Chloride:               # Chloride (mEq/L)
+    - 50806
+    - 50902
+
+  Magnesium:              # Magnesium (mg/dL)
+    - 50960
+
+  Calcium:                # Calcium (mg/dL)
+    - 50893
+
+  Ionized_calcium:        # Ionized Calcium (mmol/L)
+    - 50808
+
+  Bicarbonate:            # Bicarbonate (mEq/L)
+    - 50882
+
+  # -------------------------
+  # Arterial Blood Gas (labevents)
+  # -------------------------
+  pH:                     # pH
+    - 50820
+
+  PaO2:                   # Partial Pressure of Oxygen (mmHg)
+    - 50821
+
+  PaCO2:                  # Partial Pressure of CO2 (mmHg)
+    - 50818
+
+  Base_excess:            # Base Excess (mEq/L)
+    - 50803
+
+  FiO2:                   # Fraction of Inspired Oxygen (%)
+    - 50816
+    - 223835
+
+  # -------------------------
+  # SOFA-Specific Variables
+  # -------------------------
+  GCS:                    # Glasgow Coma Scale (CNS SOFA component)
+    - 220739              # GCS - Total
+    - 228576              # GCS Verbal Response
+    - 228577              # GCS Motor Response
+    - 228578              # GCS Eye Opening
+
+  Urine_output:           # Urine Output (mL) - Renal SOFA component
+    - 226559              # Foley
+    - 226560              # Void
+    - 226561              # Condom Cath
+    - 226584              # Ileoconduit
+    - 226563              # Suprapubic
+    - 226564              # Cystostomy
+    - 226565              # Ureteral Stent #1
+    - 226567              # Ureteral Stent #2
+    - 226557              # R Nephrostomy
+    - 226558              # L Nephrostomy
+
+  # -------------------------
+  # Ventilation (Respiratory SOFA component)
+  # -------------------------
+  Mechanical_ventilation:
+    - 225792              # Ventilator Mode (any value indicates ventilation)
+    - 225794              # Ventilator Mode (Hamilton)
+    - 225287              # O2 Flow (Non-Rebreather)
+
+  # -------------------------
+  # Vasopressors (Cardiovascular SOFA component)
+  # -------------------------
+  # Note: These are in inputevents_mv table, not chartevents/labevents
+  # Dopamine:  itemid 221662
+  # Dobutamine: itemid 221653
+  # Epinephrine: itemid 221289
+  # Norepinephrine: itemid 221906
+
+# ============================================================================
+# UNIT CONVERSIONS
+# ============================================================================
+
+unit_conversions:
+  temperature:
+    enabled: true
+    fahrenheit_to_celsius: true
+    itemids: [223761]
+    formula: "(F - 32) * 5/9"
+
+  lactate:
+    enabled: false  # MIMIC-IV already in mmol/L
+    mg_dl_to_mmol_l: false
+    conversion_factor: 0.111
+
+  glucose:
+    enabled: false  # MIMIC-IV already in mg/dL
+    mmol_l_to_mg_dl: false
+    conversion_factor: 18.0
+
+# ============================================================================
+# TEMPORAL ALIGNMENT
+# ============================================================================
+
+temporal_alignment:
+  bin_size_hours: 1
+  lookback_window_hours: 24
+
+  aggregation:
+    vitals: "median"       # Robust to outliers
+    labs: "last"           # Most recent value
+    medications: "sum"     # Total administered in window
+    urine_output: "sum"    # Total output in window
+
+  forward_fill:
+    enabled: true
+    max_hours:
+      vitals: 6            # Carry forward up to 6 hours
+      labs: 24             # Carry forward up to 24 hours
+      gcs: 12              # Carry forward up to 12 hours
+
+# ============================================================================
+# SEPSIS-3 LABELING
+# ============================================================================
+
+sepsis_definition:
+  type: "sepsis3"
+  description: "Singer et al., JAMA 2016"
+
+  prediction_window:
+    early_hours: 12        # Label 12h before onset
+    optimal_hours: 6       # Label 6h before onset
+    late_hours: 0          # Do not label after onset
+
+  infection_suspicion:
+    antibiotic_culture_window_hours: 24
+    antibiotic_source: "prescriptions"
+    culture_source: "microbiologyevents"
+
+    antibiotic_categories:
+      - "Antimicrobials"
+      - "Antibiotics"
+
+    culture_specimen_types:
+      - "BLOOD CULTURE"
+      - "URINE"
+      - "SPUTUM"
+      - "FLUID"
+      - "SWAB"
+
+  sofa:
+    baseline_calculation: "minimum_first_24h"
+    delta_threshold: 2
+
+    components:
+      - "respiratory"
+      - "coagulation"
+      - "liver"
+      - "cardiovascular"
+      - "cns"
+      - "renal"
+
+    missing_component_strategy: "assume_zero"  # Conservative approach
+
+# ============================================================================
+# MISSING DATA IMPUTATION
+# ============================================================================
+
+imputation:
+  strategy: "hybrid"  # forward_fill + mean_fallback
+
+  forward_fill_max_hours:
+    vitals: 6
+    labs: 24
+    gcs: 12
+
+  mean_imputation:
+    enabled: true
+    use_training_statistics: true
+
+  add_missingness_indicators: true
+  missingness_indicator_suffix: "_missing"
+
+# ============================================================================
+# DATA SPLITS
+# ============================================================================
+
+splits:
+  train: 0.70
+  val: 0.15
+  test: 0.15
+
+  stratify_by: "sepsis_label"
+  random_seed: 42
+
+  patient_level: true  # Split by patient_id, not by samples (avoid leakage)
+
+# ============================================================================
+# OUTPUT SETTINGS
+# ============================================================================
+
+output:
+  format: "hdf5"  # Options: hdf5, parquet, pickle
+  compression: "gzip"
+  compression_level: 4
+
+  file_names:
+    temporal: "temporal.h5"
+    static: "static.h5"
+    labels: "labels.h5"
+    metadata: "metadata.json"
+
+# ============================================================================
+# QUALITY CONTROL
+# ============================================================================
+
+quality_control:
+  remove_outliers: true
+  outlier_method: "iqr"
+  iqr_multiplier: 3.0
+
+  min_icu_stay_hours: 24  # Require at least 24h ICU stay
+  min_observations: 10     # Require at least 10 observations
+
+  physiological_ranges:
+    HR: [0, 300]
+    Temp: [30, 45]         # °C
+    SBP: [0, 300]
+    DBP: [0, 200]
+    MAP: [0, 250]
+    Resp: [0, 70]
+    O2Sat: [0, 100]

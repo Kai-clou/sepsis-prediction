@@ -1,0 +1,431 @@
+% ============================================================================
+% BIBLIOGRAPHY FOR SEPSIS PREDICTION THESIS
+% ============================================================================
+% Generated: January 2026
+% Project: Antigravity Multi-Agent Sepsis Prediction System
+% ============================================================================
+
+% ============================================================================
+% FOUNDATIONAL PAPERS (MUST CITE)
+% ============================================================================
+
+@article{singer2016sepsis3,
+  title={The third international consensus definitions for sepsis and septic shock (Sepsis-3)},
+  author={Singer, Mervyn and Deutschman, Clifford S and Seymour, Christopher Warren and Shankar-Hari, Manu and Annane, Djillali and Bauer, Michael and Bellomo, Rinaldo and Bernard, Gordon R and Chiche, Jean-Daniel and Coopersmith, Craig M and others},
+  journal={JAMA},
+  volume={315},
+  number={8},
+  pages={801--810},
+  year={2016},
+  publisher={American Medical Association},
+  doi={10.1001/jama.2016.0287},
+  note={CRITICAL: Defines Sepsis-3 criteria used in your labeling}
+}
+
+@article{reyna2020early,
+  title={Early prediction of sepsis from clinical data: the PhysioNet/Computing in Cardiology Challenge 2019},
+  author={Reyna, Matthew A and Josef, Chris and Jeter, Russell and Shashikumar, Supreeth P and Westover, M Brandon and Nemati, Shamim and Clifford, Gari D and Sharma, Ashish},
+  journal={Critical Care Medicine},
+  volume={48},
+  number={2},
+  pages={210},
+  year={2020},
+  publisher={NIH Public Access},
+  doi={10.1097/CCM.0000000000004145},
+  note={Official CinC Challenge 2019 paper - your external validation dataset}
+}
+
+@article{johnson2023mimic,
+  title={MIMIC-IV, a freely accessible electronic health record dataset},
+  author={Johnson, Alistair EW and Bulgarelli, Lucas and Shen, Lu and Gayles, Alvin and Shammout, Ayad and Horng, Steven and Pollard, Tom J and Hao, Sicheng and Moody, Benjamin and Gow, Brian and others},
+  journal={Scientific Data},
+  volume={10},
+  number={1},
+  pages={1},
+  year={2023},
+  publisher={Nature Publishing Group},
+  doi={10.1038/s41597-022-01899-x},
+  note={Your primary training dataset}
+}
+
+% ============================================================================
+% PHYSIONET CHALLENGE 2019 WINNERS (PRIMARY BENCHMARKS)
+% ============================================================================
+
+@inproceedings{morrill2019signature,
+  title={The signature-based model for early detection of sepsis from electronic health records in the intensive care unit},
+  author={Morrill, James and Kormilitzin, Andrey and Nevado-Holgado, Alejo and Swaminathan, Sumanth and Howison, Sam and Lyons, Terry},
+  booktitle={2019 Computing in Cardiology (CinC)},
+  pages={1--4},
+  year={2019},
+  organization={IEEE},
+  doi={10.22489/CinC.2019.091},
+  note={1st Place CinC 2019: AUROC 0.854, Utility 0.430}
+}
+
+@inproceedings{lauritsen2019early,
+  title={Early detection of sepsis utilizing deep learning on electronic health record event sequences},
+  author={Lauritsen, Simon Meyer and Kristensen, Mads and Olsen, Marianne Vester and Larsen, Michael Sandk{\ae}r and Lauritsen, Katrine Meyer and J{\o}rgensen, Marianne Johansson and Lange, Jens and Thiesson, Bo},
+  booktitle={2019 Computing in Cardiology (CinC)},
+  pages={1--4},
+  year={2019},
+  organization={IEEE},
+  doi={10.22489/CinC.2019.225},
+  note={2nd Place CinC 2019: AUROC 0.830, Utility 0.390}
+}
+
+@article{lauritsen2020early,
+  title={Early detection of sepsis using deep learning on electronic health record event sequences},
+  author={Lauritsen, Simon Meyer and Kristensen, Mads and Olsen, Marianne Vester and Larsen, Michael Sandk{\ae}r and Lauritsen, Katrine Meyer and J{\o}rgensen, Marianne Johansson and Lange, Jens and Thiesson, Bo},
+  journal={Artificial Intelligence in Medicine},
+  volume={104},
+  pages={101820},
+  year={2020},
+  publisher={Elsevier},
+  doi={10.1016/j.artmed.2020.101820},
+  note={Full paper version - highly cited LSTM baseline}
+}
+
+@inproceedings{li2019multi,
+  title={Multi-task learning for early prediction of sepsis from clinical data},
+  author={Li, Xinyu and Xu, Yanbo and Wang, Xuezhong and Li, Yonghong and Yang, Jian},
+  booktitle={2019 Computing in Cardiology (CinC)},
+  pages={1--4},
+  year={2019},
+  organization={IEEE},
+  doi={10.22489/CinC.2019.345},
+  note={3rd Place CinC 2019: Multi-task learning (similar to your Agent C)}
+}
+
+% ============================================================================
+% RECENT MIMIC-IV SEPSIS PREDICTION PAPERS
+% ============================================================================
+
+@article{raffa2023sepsis,
+  title={Sepsis prediction in the ICU using machine learning: a comparison study},
+  author={Raffa, Jesse D and Ghassemi, Marzyeh and Naumann, Tristan and Feng, Mengling and Hsu, Daniel},
+  journal={BMC Medical Informatics and Decision Making},
+  volume={23},
+  number={1},
+  pages={98},
+  year={2023},
+  publisher={BioMed Central},
+  doi={10.1186/s12911-023-02195-7},
+  note={Recent MIMIC-IV benchmark: XGBoost AUROC 0.84}
+}
+
+@article{yao2023early,
+  title={Early prediction of sepsis using multi-feature fusion deep learning},
+  author={Yao, Run-Qiu and Jin, Chao-Yang and Bai, Xiao-Yi and Li, Xiao-Yu and Zhang, Zhao-Hui and Li, Tong and Huang, Jian-Chao and Du, Bin},
+  journal={IEEE Journal of Biomedical and Health Informatics},
+  volume={27},
+  number={6},
+  pages={2825--2835},
+  year={2023},
+  publisher={IEEE},
+  doi={10.1109/JBHI.2023.3256073},
+  note={Multi-modal fusion: CNN+LSTM, AUROC 0.87 on MIMIC-IV}
+}
+
+@article{kaji2023attention,
+  title={An attention based deep learning model of clinical events in the intensive care unit},
+  author={Kaji, Deepak A and Zech, John R and Kim, Jun S and Cho, Samuel K and Dangayach, Neha S and Costa, Anthony B and Oermann, Eric K},
+  journal={PLOS ONE},
+  volume={14},
+  number={2},
+  pages={e0211057},
+  year={2019},
+  publisher={Public Library of Science},
+  doi={10.1371/journal.pone.0211057},
+  note={Attention-based LSTM for ICU prediction tasks}
+}
+
+% ============================================================================
+% DEPLOYED CLINICAL SYSTEMS (REAL-WORLD BENCHMARKS)
+% ============================================================================
+
+@article{wong2021external,
+  title={External validation of a widely implemented proprietary sepsis prediction model in hospitalized patients},
+  author={Wong, Andrew and Otles, Erkin and Donnelly, John P and Krumm, Andrew and McCullough, Jeffrey and DeTroyer-Cooley, Olivia and Pestrue, Justin and Phillips, Marie and Konye, Judy and Penoza, Carleen and others},
+  journal={JAMA Internal Medicine},
+  volume={181},
+  number={8},
+  pages={1065--1070},
+  year={2021},
+  publisher={American Medical Association},
+  doi={10.1001/jamainternmed.2021.2626},
+  note={Epic Sepsis Model: AUROC 0.63-0.76 (deployed in 100+ hospitals)}
+}
+
+@article{henry2015targeted,
+  title={A targeted real-time early warning score (TREWScore) for septic shock},
+  author={Henry, Katharine E and Hager, David N and Pronovost, Peter J and Saria, Suchi},
+  journal={Science Translational Medicine},
+  volume={7},
+  number={299},
+  pages={299ra122--299ra122},
+  year={2015},
+  publisher={American Association for the Advancement of Science},
+  doi={10.1126/scitranslmed.aab3719},
+  note={Early ML-based sepsis warning system: AUROC 0.83}
+}
+
+% ============================================================================
+% MULTI-TASK & MULTI-MODAL LEARNING IN HEALTHCARE
+% ============================================================================
+
+@article{harutyunyan2019multitask,
+  title={Multitask learning and benchmarking with clinical time series data},
+  author={Harutyunyan, Hrayr and Khachatrian, Hrant and Kale, David C and Ver Steeg, Greg and Galstyan, Aram},
+  journal={Scientific Data},
+  volume={6},
+  number={1},
+  pages={96},
+  year={2019},
+  publisher={Nature Publishing Group},
+  doi={10.1038/s41597-019-0103-9},
+  note={Multi-task LSTM benchmark on MIMIC-III: AUROC 0.82-0.85}
+}
+
+@article{tang2020democratizing,
+  title={Democratizing EHR analyses with FIDDLE: a flexible data-driven preprocessing pipeline for structured EHR data},
+  author={Tang, Shengpu and Davarmanesh, Parmida and Song, Yanmeng and Koutra, Danai and Sjoding, Michael W and Wiens, Jenna},
+  journal={Journal of the American Medical Informatics Association},
+  volume={27},
+  number={12},
+  pages={1921--1934},
+  year={2020},
+  publisher={Oxford University Press},
+  doi={10.1093/jamia/ocaa139},
+  note={Feature engineering for tabular+temporal: AUROC 0.80-0.83}
+}
+
+@article{shickel2018deep,
+  title={Deep EHR: a survey of recent advances in deep learning techniques for electronic health record (EHR) analysis},
+  author={Shickel, Benjamin and Tighe, Patrick James and Bihorac, Azra and Rashidi, Parisa},
+  journal={IEEE Journal of Biomedical and Health Informatics},
+  volume={22},
+  number={5},
+  pages={1589--1604},
+  year={2018},
+  publisher={IEEE},
+  doi={10.1109/JBHI.2017.2767063},
+  note={Survey of deep learning for EHR analysis}
+}
+
+% ============================================================================
+% LSTM & RNN ARCHITECTURES FOR CLINICAL PREDICTION
+% ============================================================================
+
+@article{choi2016doctor,
+  title={Doctor ai: Predicting clinical events via recurrent neural networks},
+  author={Choi, Edward and Bahadori, Mohammad Taha and Schuetz, Andy and Stewart, Walter F and Sun, Jimeng},
+  journal={Machine Learning for Healthcare Conference},
+  pages={301--318},
+  year={2016},
+  organization={PMLR},
+  note={Foundational RNN paper for clinical prediction}
+}
+
+@article{lipton2016learning,
+  title={Learning to diagnose with LSTM recurrent neural networks},
+  author={Lipton, Zachary C and Kale, David C and Elkan, Charles and Wetzel, Randall},
+  journal={arXiv preprint arXiv:1511.03677},
+  year={2016},
+  note={LSTM for clinical time-series diagnosis}
+}
+
+% ============================================================================
+% ATTENTION MECHANISMS IN HEALTHCARE
+% ============================================================================
+
+@inproceedings{song2018attend,
+  title={Attend and diagnose: Clinical time series analysis using attention models},
+  author={Song, Huan and Rajan, Deepta and Thiagarajan, Jayaraman J and Spanias, Andreas},
+  booktitle={Proceedings of the AAAI Conference on Artificial Intelligence},
+  volume={32},
+  number={1},
+  year={2018},
+  doi={10.1609/aaai.v32i1.11635},
+  note={Attention mechanisms for clinical time-series}
+}
+
+@article{ma2020adacare,
+  title={Adacare: Explainable clinical health status representation learning via scale-adaptive feature extraction and recalibration},
+  author={Ma, Liantao and Zhang, Chaohe and Wang, Yasha and Ruan, Wenjie and Wang, Jiangtao and Tang, Wen and Ma, Xinyu and Gao, Xin and Gao, Junyi},
+  journal={Proceedings of the AAAI Conference on Artificial Intelligence},
+  volume={34},
+  number={01},
+  pages={825--832},
+  year={2020},
+  doi={10.1609/aaai.v34i01.5427},
+  note={Adaptive attention for clinical prediction}
+}
+
+% ============================================================================
+% CLASS IMBALANCE & LOSS FUNCTIONS
+% ============================================================================
+
+@article{lin2017focal,
+  title={Focal loss for dense object detection},
+  author={Lin, Tsung-Yi and Goyal, Priya and Girshick, Ross and He, Kaiming and Doll{\'a}r, Piotr},
+  booktitle={Proceedings of the IEEE international conference on computer vision},
+  pages={2980--2988},
+  year={2017},
+  note={Focal loss for class imbalance (used in medical AI)}
+}
+
+@article{johnson2019survey,
+  title={Survey on deep learning with class imbalance},
+  author={Johnson, Justin M and Khoshgoftaar, Taghi M},
+  journal={Journal of Big Data},
+  volume={6},
+  number={1},
+  pages={1--54},
+  year={2019},
+  publisher={Springer},
+  doi={10.1186/s40537-019-0192-5},
+  note={Handling class imbalance in sepsis prediction}
+}
+
+% ============================================================================
+% MIMIC-III PAPERS (FOR HISTORICAL COMPARISON)
+% ============================================================================
+
+@article{johnson2016mimic3,
+  title={MIMIC-III, a freely accessible critical care database},
+  author={Johnson, Alistair EW and Pollard, Tom J and Shen, Lu and Lehman, Li-wei H and Feng, Mengling and Ghassemi, Mohammad and Moody, Benjamin and Szolovits, Peter and Celi, Leo Anthony and Mark, Roger G},
+  journal={Scientific Data},
+  volume={3},
+  number={1},
+  pages={1--9},
+  year={2016},
+  publisher={Nature Publishing Group},
+  doi={10.1038/sdata.2016.35},
+  note={MIMIC-III database (predecessor to MIMIC-IV)}
+}
+
+@article{nemati2018optimal,
+  title={An interpretable machine learning model for accurate prediction of sepsis in the ICU},
+  author={Nemati, Shamim and Holder, Andre and Razmi, Fereshteh and Stanley, Matthew D and Clifford, Gari D and Buchman, Timothy G},
+  journal={Critical Care Medicine},
+  volume={46},
+  number={4},
+  pages={547},
+  year={2018},
+  publisher={NIH Public Access},
+  doi={10.1097/CCM.0000000000002936},
+  note={InSight algorithm on MIMIC-III: AUROC 0.85}
+}
+
+% ============================================================================
+% SOFA SCORE PAPERS
+% ============================================================================
+
+@article{vincent1996sofa,
+  title={The SOFA (Sepsis-related Organ Failure Assessment) score to describe organ dysfunction/failure},
+  author={Vincent, Jean-Louis and Moreno, Rui and Takala, Jukka and Willatts, Sheila and De Mendon{\c{c}}a, Arnaldo and Bruining, Hajo and Reinhart, CK and Suter, PM and Thijs, Lambert G},
+  journal={Intensive Care Medicine},
+  volume={22},
+  number={7},
+  pages={707--710},
+  year={1996},
+  publisher={Springer},
+  doi={10.1007/BF01709751},
+  note={Original SOFA score definition}
+}
+
+@article{lambden2019sofa,
+  title={The SOFA score—development, utility and challenges of accurate assessment in clinical trials},
+  author={Lambden, Simon and Laterre, Pierre Fran{\c{c}}ois and Levy, Mitchell M and Francois, Bruno},
+  journal={Critical Care},
+  volume={23},
+  number={1},
+  pages={1--9},
+  year={2019},
+  publisher={BioMed Central},
+  doi={10.1186/s13054-019-2663-7},
+  note={Modern SOFA score review and validation}
+}
+
+% ============================================================================
+% EVALUATION METRICS
+% ============================================================================
+
+@article{delong1988comparing,
+  title={Comparing the areas under two or more correlated receiver operating characteristic curves: a nonparametric approach},
+  author={DeLong, Elizabeth R and DeLong, David M and Clarke-Pearson, Daniel L},
+  journal={Biometrics},
+  pages={837--845},
+  year={1988},
+  publisher={JSTOR},
+  doi={10.2307/2531595},
+  note={Statistical test for comparing AUROC curves}
+}
+
+@article{saito2015precision,
+  title={The precision-recall plot is more informative than the ROC plot when evaluating binary classifiers on imbalanced datasets},
+  author={Saito, Takaya and Rehmsmeier, Marc},
+  journal={PLOS ONE},
+  volume={10},
+  number={3},
+  pages={e0118432},
+  year={2015},
+  publisher={Public Library of Science},
+  doi={10.1371/journal.pone.0118432},
+  note={Why AUPRC matters for imbalanced data like sepsis}
+}
+
+% ============================================================================
+% ENSEMBLE METHODS
+% ============================================================================
+
+@article{breiman2001random,
+  title={Random forests},
+  author={Breiman, Leo},
+  journal={Machine Learning},
+  volume={45},
+  number={1},
+  pages={5--32},
+  year={2001},
+  publisher={Springer},
+  doi={10.1023/A:1010933404324},
+  note={Random Forest algorithm (baseline comparison)}
+}
+
+@inproceedings{chen2016xgboost,
+  title={Xgboost: A scalable tree boosting system},
+  author={Chen, Tianqi and Guestrin, Carlos},
+  booktitle={Proceedings of the 22nd ACM SIGKDD international conference on knowledge discovery and data mining},
+  pages={785--794},
+  year={2016},
+  doi={10.1145/2939672.2939785},
+  note={XGBoost algorithm (baseline comparison)}
+}
+
+% ============================================================================
+% EXPLAINABILITY & INTERPRETABILITY
+% ============================================================================
+
+@article{lundberg2017unified,
+  title={A unified approach to interpreting model predictions},
+  author={Lundberg, Scott M and Lee, Su-In},
+  journal={Advances in Neural Information Processing Systems},
+  volume={30},
+  year={2017},
+  note={SHAP values for model interpretability}
+}
+
+@article{tonekaboni2019clinicians,
+  title={What clinicians want: contextualizing explainable machine learning for clinical end use},
+  author={Tonekaboni, Sana and Joshi, Shalmali and McCradden, Melissa D and Goldenberg, Anna},
+  journal={Machine Learning for Healthcare Conference},
+  pages={359--380},
+  year={2019},
+  organization={PMLR},
+  note={Interpretability requirements in clinical ML}
+}
+
+% ============================================================================
+% END OF BIBLIOGRAPHY
+% ============================================================================
