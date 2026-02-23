@@ -50,7 +50,7 @@ CONFIG = {
 ```python
 CONFIG = {
     # Data
-    'data_file': f"{DATA_PATH}/mimic_processed_medium.h5",  # 3,559 patients (5x increase)
+    'data_file': f"{DATA_PATH}/mimic_processed_large.h5",  # 3,559 patients (5x increase)
     'sequence_length': 24,
     'test_size': 0.2,
     'val_size': 0.1,
@@ -90,7 +90,7 @@ CONFIG = {
 ```python
 CONFIG = {
     # Data
-    'data_file': f"{DATA_PATH}/mimic_processed_medium.h5",  # 3,559 patients
+    'data_file': f"{DATA_PATH}/mimic_processed_large.h5",  # 3,559 patients
     'sequence_length': 24,
     'test_size': 0.2,
     'val_size': 0.1,
@@ -130,7 +130,7 @@ CONFIG = {
 ```python
 CONFIG = {
     # Data
-    'data_file': f"{DATA_PATH}/mimic_processed_medium.h5",
+    'data_file': f"{DATA_PATH}/mimic_processed_large.h5",
     'sequence_length': 24,
     'test_size': 0.2,
     'val_size': 0.1,
@@ -170,7 +170,7 @@ CONFIG = {
 ```python
 CONFIG = {
     # Data
-    'data_file': f"{DATA_PATH}/mimic_processed_medium.h5",
+    'data_file': f"{DATA_PATH}/mimic_processed_large.h5",
     'sequence_length': 24,
     'test_size': 0.2,
     'val_size': 0.1,
@@ -210,7 +210,7 @@ CONFIG = {
 ```python
 CONFIG = {
     # Data
-    'data_file': f"{DATA_PATH}/mimic_processed_medium.h5",
+    'data_file': f"{DATA_PATH}/mimic_processed_large.h5",
     'sequence_length': 24,
     'test_size': 0.2,
     'val_size': 0.1,
@@ -250,11 +250,11 @@ CONFIG = {
 | Version | Data File | Patients | LR | Dropout | Hidden | Layers | Focal α | AUROC |
 |---------|-----------|----------|-----|---------|--------|--------|---------|-------|
 | v1 | medium.h5 | 725 | 1e-3 | 0.3 | 64 | 2 | 0.25 | 0.7391 |
-| v2 | medium.h5 | 3,559 | 1e-3 | 0.3 | 64 | 2 | 0.25 | 0.6743 |
-| **v3** | **medium.h5** | **3,559** | **1e-4** | **0.3** | **64** | **2** | **0.25** | **0.7263** |
-| v4 | medium.h5 | 3,559 | 1e-4 | 0.3 | 64 | 2 | 0.35 | 0.6912 |
-| v5 | medium.h5 | 3,559 | 1e-4 | 0.4 | 64 | 2 | 0.25 | 0.7198 |
-| v6 | medium.h5 | 3,559 | 1e-4 | 0.3 | 32 | 1 | 0.25 | 0.7204 |
+| v2 | large.h5 | 3,559 | 1e-3 | 0.3 | 64 | 2 | 0.25 | 0.6743 |
+| **v3** | **large.h5** | **3,559** | **1e-4** | **0.3** | **64** | **2** | **0.25** | **0.7263** |
+| v4 | large.h5 | 3,559 | 1e-4 | 0.3 | 64 | 2 | 0.35 | 0.6912 |
+| v5 | large.h5 | 3,559 | 1e-4 | 0.4 | 64 | 2 | 0.25 | 0.7198 |
+| v6 | large.h5 | 3,559 | 1e-4 | 0.3 | 32 | 1 | 0.25 | 0.7204 |
 
 ---
 
