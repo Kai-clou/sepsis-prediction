@@ -57,6 +57,8 @@ Instead of a single model, we use **three specialist neural networks** combined 
 | MEWS | 0.67-0.72 | +1-8% |
 | **Our Model** | **0.7263** | -- |
 
+*Note: Clinical score AUROCs are from published literature on different patient populations and serve as approximate reference points, not direct same-data comparisons. The ML comparison below is a direct, fair comparison on identical data and splits.*
+
 ### vs. Traditional ML (Same Data, Same Split)
 
 | Method | AUROC | AUPRC |

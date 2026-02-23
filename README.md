@@ -52,6 +52,8 @@ Patient Data (24h window)
 | MEWS | 0.67-0.72 | Subbe 2001 |
 | **Multi-Agent (ours)** | **0.7263** | This project |
 
+*Note: Clinical score AUROCs are from published literature on different patient populations and serve as approximate reference points, not direct same-data comparisons.*
+
 ## Project Structure
 
 ```
