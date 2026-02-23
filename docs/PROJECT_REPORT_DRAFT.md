@@ -60,15 +60,11 @@ A Transformer architecture processes these trend patterns across all 24 features
 
 ### 2.5 Meta-Learner: Attention-Weighted Fusion
 
-The Meta-Learner combines agent embeddings **v**_vitals, **v**_labs, **v**_trend ∈ ℝ⁶⁴ through learned attention:
+The Meta-Learner acts as the "decision maker" that combines insights from all three agents. Rather than simply averaging the outputs, it learns to assign different importance weights to each agent based on the specific patient's data.
 
-```
-e_i = tanh(W_3 v_i + b_3)
-β_i = softmax(W_4 e_i + b_4)
-c = Σ(β_i × v_i)
-```
+For example, if a patient has complete laboratory data showing clear sepsis indicators, the Meta-Learner might assign 45% weight to the Labs Agent, 35% to Vitals, and 20% to Trends. For another patient with sparse lab data but concerning vital sign patterns, it might shift to 50% Vitals, 30% Trends, and 20% Labs.
 
-where β_i represents the relative importance of agent i. The weighted combination passes through two fully connected layers, producing a final sepsis probability via sigmoid activation. This provides interpretability by exposing which agents contributed most to each prediction and allows adaptive handling of varying data availability.
+This dynamic weighting provides two key benefits. First, it enables interpretability—clinicians can see which data sources drove each prediction, building trust in the system. Second, it handles varying data availability gracefully—when certain measurements are missing or unreliable, the model automatically relies more heavily on the remaining agents.
 
 ### 2.6 Training
 
@@ -277,7 +273,39 @@ CONFIG = {
 
 Insert the following figures at marked locations:
 
-1. **Figure 1** (Section 2.1): Block diagram showing multi-agent architecture with data flow
-2. **Figure 2** (Section 4.1): ROC curve (left) and Precision-Recall curve (right) from test set predictions
+### Figure 1: System Architecture Diagram (Section 2.1)
+**Location in report:** After "...produce final sepsis risk predictions."
+**Source:** Create manually using draw.io, PowerPoint, or similar tool
+**Content:** Block diagram showing:
+- Input: 24-hour patient window (vitals + labs)
+- Three parallel boxes: Vitals Agent (Bi-LSTM), Labs Agent (LSTM), Trend Agent (Transformer)
+- Arrows converging to Meta-Learner box
+- Output: Sepsis probability (0-1)
 
-**All tables are embedded in markdown format.**
+### Figure 2: ROC and Precision-Recall Curves (Section 4.1)
+**Location in report:** After "...demonstrating high precision at high recall."
+**Source:** `Train_MultiAgent_Model.ipynb` → Cell 32 (Evaluation section)
+**How to get:** After training completes, the notebook automatically generates these plots. Right-click → "Save image as" or screenshot.
+**Content:** Two side-by-side plots showing model discrimination performance
+
+### Optional Additional Figures
+
+**Training Loss Curves:**
+- Source: `Train_MultiAgent_Model.ipynb` → Cell 30 (after training loop)
+- Shows training/validation loss over epochs
+
+**Confusion Matrix:**
+- Source: `Complete_Metrics_Analysis.ipynb` → Evaluation cells
+- Shows TP/TN/FP/FN counts at chosen threshold
+
+**Baseline Comparison Bar Chart:**
+- Source: `Baseline_Comparison.ipynb` → Final cells
+- Shows AUROC/AUPRC comparison across all models
+
+**Agent Weight Distribution:**
+- Source: `Complete_Metrics_Analysis.ipynb` → Agent analysis cells
+- Shows pie chart or bar chart of agent contributions
+
+---
+
+**All tables are embedded in markdown format and will render in most viewers.**
