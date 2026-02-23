@@ -47,12 +47,12 @@ Patient Data (24h window)
 
 | Score | AUROC | Source |
 |-------|-------|--------|
-| SIRS | 0.64-0.68 | Singer 2016 |
-| qSOFA | 0.66-0.70 | Seymour 2016 |
-| MEWS | 0.67-0.72 | Subbe 2001 |
+| SIRS | 0.64 | Singer et al. JAMA 2016 |
+| qSOFA | 0.66 (ICU patients) | Seymour et al. JAMA 2016 |
+| MEWS | 0.67-0.72 | Meta-analyses |
 | **Multi-Agent (ours)** | **0.7263** | This project |
 
-*Note: Clinical score AUROCs are from published literature on different patient populations and serve as approximate reference points, not direct same-data comparisons.*
+*Note: Clinical score AUROCs are from published literature on different patient populations and serve as approximate reference points, not direct same-data comparisons. For rigorous comparison, see Traditional ML results above (same data, same split).*
 
 ## Project Structure
 
@@ -95,6 +95,7 @@ Python, PyTorch, scikit-learn, pandas, Google Colab (GPU)
 
 ## References
 
-- Singer M, et al. *Sepsis-3 Definition.* JAMA. 2016.
-- Johnson A, et al. *MIMIC-IV.* PhysioNet. 2022.
-- Lin TY, et al. *Focal Loss.* IEEE ICCV. 2017.
+- Singer M, et al. *The Third International Consensus Definitions for Sepsis and Septic Shock (Sepsis-3).* JAMA. 2016;315(8):801-810.
+- Seymour CW, et al. *Assessment of Clinical Criteria for Sepsis: For the Third International Consensus Definitions for Sepsis and Septic Shock (Sepsis-3).* JAMA. 2016;315(8):762-774.
+- Johnson A, et al. *MIMIC-IV (v2.0).* PhysioNet. 2022.
+- Lin TY, et al. *Focal Loss for Dense Object Detection.* IEEE ICCV. 2017.
