@@ -36,25 +36,27 @@ The proposed system consists of four components: a Vitals Agent, Labs Agent, Tre
 
 ### 2.2 Vitals Agent: Bi-directional LSTM with Attention
 
-The Vitals Agent processes seven continuously monitored vital signs (heart rate, respiratory rate, temperature, systolic/diastolic/mean blood pressure, oxygen saturation). A bi-directional LSTM processes 24-hour sequences in both forward and backward directions, enabling the model to incorporate past and future context. Let **x**_t ∈ ℝ⁷ represent vital signs at time t. The bi-directional hidden states **h**_t = [**h**_t^f; **h**_t^b] ∈ ℝ¹²⁸ are computed and weighted by a temporal attention mechanism:
+The Vitals Agent processes seven continuously monitored vital signs: heart rate, respiratory rate, temperature, systolic blood pressure, diastolic blood pressure, mean arterial pressure, and oxygen saturation. These measurements are recorded hourly with high reliability (over 95% data completeness).
 
-```
-e_t = tanh(W_1 h_t + b_1)
-α_t = softmax(W_2 e_t + b_2)
-v = Σ(α_t × h_t)
-```
+The agent uses a bi-directional LSTM, which reads the 24-hour sequence both forwards (from hour 1 to 24) and backwards (from hour 24 to 1). This allows the model to understand context from both directions—for example, recognizing that a heart rate spike at hour 15 was followed by recovery at hour 18, or preceded by low blood pressure at hour 12.
 
-The context vector **v** passes through a fully connected layer with ReLU activation and dropout (0.3) to produce the 64-dimensional vitals embedding. This architecture captures critical events like sudden heart rate spikes or blood pressure drops that require temporal context to distinguish from transient artifacts.
+An attention mechanism then learns which time points matter most for predicting sepsis. Rather than treating all 24 hours equally, the model assigns higher weights to critical moments (such as sudden vital sign changes) and lower weights to stable periods. This helps the model focus on clinically meaningful events while filtering out noise.
 
 ### 2.3 Labs Agent: LSTM with Learned Imputation
 
-The Labs Agent handles seventeen laboratory measurements (lactate, WBC, creatinine, BUN, electrolytes, blood gases, bilirubin) with substantial missingness (40-60%). Traditional imputation methods use simple strategies like forward-fill or mean imputation, failing to capture context-dependent nature of missing values. We implement learned imputation: a learnable vector **i** ∈ ℝ¹⁷ is trained jointly with the network, providing patient-context-specific replacement values that minimize prediction loss.
+The Labs Agent handles seventeen laboratory measurements including lactate, white blood cell count, creatinine, and blood gases. Unlike vital signs, lab tests are only performed when clinicians order them, resulting in 40-60% missing values at any given time point.
 
-Imputed values are concatenated with a binary missing mask **m** ∈ {0,1}¹⁷ forming [\*\*x\*\*_labs; **m**] ∈ ℝ³⁴, preserving information about uncertainty. This concatenated representation is projected to 64 dimensions and processed by a 2-layer LSTM, with the final hidden state passed through a fully connected layer to produce the 64-dimensional labs embedding.
+Traditional approaches fill in missing values using simple rules, such as carrying forward the last known value or using the average across all patients. However, these methods ignore important context—for example, if a patient has signs of kidney dysfunction, their missing lactate value is more likely to be elevated than normal.
+
+Our approach learns the best fill-in values during training. The model discovers that when certain lab patterns are present, missing values should be estimated higher or lower than average. Additionally, the model tracks which values were actually measured versus imputed, preserving information about data uncertainty. This allows the Labs Agent to make intelligent use of incomplete laboratory data.
 
 ### 2.4 Trend Agent: Transformer Encoder
 
-The Trend Agent analyzes temporal evolution through derivatives of all 24 features. First differences Δ**x**_t = **x**_t - **x**_{t-1} capture instantaneous rate of change, while second differences Δ²**x**_t capture acceleration. The concatenated representation [\*\*x\*\*; Δ**x**; Δ²**x**] ∈ ℝ⁷² is processed by a Transformer encoder (2 layers, 4 attention heads) with sinusoidal positional encodings. The self-attention mechanism captures complex multivariate temporal interactions, such as rising lactate combined with falling blood pressure. Encoder output is mean-pooled and passed through a fully connected layer to produce the 64-dimensional trend embedding.
+The Trend Agent focuses on how measurements change over time, rather than their absolute values. Clinically, a lactate level rising from 2.0 to 4.0 over six hours is more concerning than a stable value of 4.0, even though both represent the same final number.
+
+The agent computes two types of changes: the rate of change (how fast values are rising or falling) and the acceleration (whether the rate itself is speeding up or slowing down). For example, it can detect that a patient's blood pressure is not only dropping, but dropping faster each hour—a sign of deteriorating condition.
+
+A Transformer architecture processes these trend patterns across all 24 features simultaneously. Unlike the LSTM which reads sequentially, the Transformer can directly compare any two time points, making it effective at spotting complex patterns like "lactate rising while blood pressure falling"—combinations that are strong indicators of septic shock.
 
 ### 2.5 Meta-Learner: Attention-Weighted Fusion
 
