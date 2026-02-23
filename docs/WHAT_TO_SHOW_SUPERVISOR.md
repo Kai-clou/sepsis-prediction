@@ -32,6 +32,8 @@
 
 **What to show:** Open `notebooks/Data_Exploration_Quick.ipynb` on Colab
 
+**NOTE:** See [VISUALIZATION_WALKTHROUGH.md](VISUALIZATION_WALKTHROUGH.md) for detailed talking points for each visualization in this notebook.
+
 ### Visualization 1: Dataset Summary
 
 **Show this output:**
