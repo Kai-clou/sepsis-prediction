@@ -74,9 +74,11 @@ Sepsis/
 ## Data
 
 - **Source:** MIMIC-IV (PhysioNet) - real de-identified ICU records
-- **Cohort:** 3,559 patients, 422,149 hourly observations
+- **Cohort:** 3,559 patients, 422,149 hourly observations (subset of full MIMIC-IV)
 - **Sepsis definition:** Sepsis-3 (suspected infection + SOFA increase >= 2)
 - **Features:** 7 vitals + 17 lab values
+
+This project uses a subset of MIMIC-IV for initial validation. The full database contains 50,000+ ICU patients. Future work includes scaling to the complete dataset.
 
 Data files are not included in this repo (requires PhysioNet credentials).
 
