@@ -9,8 +9,7 @@ Each agent specializes in different aspects of patient physiology:
 
 The Meta-Learner combines agent outputs for final prediction.
 
-Author: Jason
-Date: February 2026
+
 """
 
 import torch
