@@ -9,19 +9,19 @@
 
 ## Abstract
 
-Sepsis remains a leading cause of mortality in intensive care units, with early detection critical for patient outcomes. This project develops a novel multi-agent deep learning architecture for sepsis prediction using heterogeneous temporal data from the MIMIC-IV database. The system employs three specialized agents—a Bi-directional LSTM with attention for vital signs, an LSTM with learned imputation for laboratory values, and a Transformer encoder for temporal trends—combined through an attention-weighted meta-learner. Trained on 3,559 ICU patients, the model achieved AUROC 0.7263 and AUPRC 0.6536, outperforming traditional baselines by 1.6%. Systematic experimentation revealed that learning rate adjustment is critical when scaling training data, with a reduction from 1×10⁻³ to 1×10⁻⁴ recovering a 5.2% performance loss. The architecture provides interpretability through attention mechanisms that expose which data modalities and time points drove each prediction.
+Sepsis remains a leading cause of mortality in intensive care units, with early detection critical for patient outcomes. This project develops a multi-agent deep learning architecture for sepsis prediction using temporal clinical data from the MIMIC-IV database. The system uses three specialized agents—a Bi-directional LSTM with attention for vital signs, an LSTM with learned imputation for laboratory values, and a Transformer encoder for temporal trends—combined through an attention-weighted meta-learner. Trained on 3,559 ICU patients, the model achieved AUROC 0.7263 and AUPRC 0.6536, outperforming traditional baselines by 1.6%. During experimentation, we found that learning rate adjustment is critical when scaling training data—reducing from 1×10⁻³ to 1×10⁻⁴ recovered a 5.2% performance drop. The architecture also provides interpretability through attention mechanisms that show which data sources and time points drove each prediction.
 
 ---
 
 ## 1. Introduction
 
-Sepsis, defined as life-threatening organ dysfunction caused by a dysregulated host response to infection, affects approximately 49 million people globally each year and causes an estimated 11 million deaths. In intensive care units, each hour of delay in appropriate treatment is associated with a 7.6% increase in mortality risk, emphasizing the critical importance of early detection systems.
+Sepsis—life-threatening organ dysfunction caused by infection—affects approximately 49 million people globally each year and causes an estimated 11 million deaths. In intensive care units, each hour of delay in treatment is associated with a 7.6% increase in mortality risk, making early detection critical.
 
-The challenge of early sepsis prediction is compounded by the heterogeneous nature of ICU data. Vital signs are monitored continuously with minimal missing values (>95% completeness), while laboratory measurements are obtained intermittently with 40-60% missingness. Traditional machine learning approaches require extensive feature engineering and struggle to capture complex temporal dependencies. Clinical scoring systems like SOFA and qSOFA offer interpretability but are reactive rather than predictive, typically identifying sepsis after organ dysfunction has occurred.
+Predicting sepsis early is difficult because ICU data comes in different forms. Vital signs are recorded continuously with few missing values (>95% completeness), while lab tests are only done when ordered, leaving 40-60% of values missing at any given time. Traditional machine learning requires extensive feature engineering and struggles with temporal patterns. Clinical scoring systems like SOFA and qSOFA are interpretable but reactive—they typically identify sepsis after organ dysfunction has already occurred.
 
-Deep learning approaches, particularly recurrent neural networks and attention mechanisms, have demonstrated effectiveness in modeling clinical time series. Multi-agent systems decompose complex problems into specialized sub-problems, offering modularity and interpretability through explicit quantification of different information sources. However, their application to medical prediction tasks remains limited.
+Recent deep learning approaches using recurrent neural networks and attention mechanisms have shown promise for clinical time series. Multi-agent systems offer an interesting alternative by breaking complex problems into specialized sub-problems, though they have not been widely applied to medical prediction.
 
-This project addresses the challenge through a multi-agent architecture specifically designed for heterogeneous temporal ICU data. The objectives are: (1) design specialized agents for different data modalities with appropriate handling of missingness and temporal patterns; (2) develop an attention-based fusion mechanism that dynamically weights agent contributions; (3) conduct systematic hyperparameter optimization when scaling from limited to larger datasets; (4) evaluate clinical utility through comprehensive metrics and baseline comparisons.
+This project explores a multi-agent architecture designed specifically for ICU data. The goals were to: (1) design specialized agents for different data types with appropriate handling of missing values; (2) develop an attention-based fusion mechanism that weights each agent's contribution; (3) test how hyperparameters need to change when scaling to larger datasets; and (4) evaluate whether this approach outperforms traditional methods.
 
 ---
 
@@ -29,7 +29,7 @@ This project addresses the challenge through a multi-agent architecture specific
 
 ### 2.1 System Architecture
 
-The proposed system consists of four components: a Vitals Agent, Labs Agent, Trend Agent, and Meta-Learner. Each agent operates independently on its input modality and produces a 64-dimensional embedding, which are combined by the meta-learner through learned attention weights to produce final sepsis risk predictions.
+The system has four components: a Vitals Agent, Labs Agent, Trend Agent, and Meta-Learner. Each agent processes its own type of input and produces a 64-dimensional embedding. The meta-learner then combines these embeddings using learned attention weights to produce the final sepsis risk prediction.
 
 **[INSERT FIGURE 1 HERE: System Architecture Diagram]**
 *Figure 1: Multi-agent architecture showing data flow from 24-hour patient windows through specialized agents to final prediction.*
@@ -162,11 +162,13 @@ The multi-agent architecture outperforms the best baseline (XGBoost) by 1.59 per
 
 ### 5.1 Clinical Interpretability
 
-The multi-agent architecture provides interpretability through attention mechanisms. Agent-level weights indicate which data modality drove each prediction, while temporal attention highlights critical time points. For example, a high-risk prediction (probability 0.78) might show Labs Agent contributing 45%, with attention focusing on an elevated lactate measurement (4.2 mmol/L) at hour 20, while the Vitals Agent emphasizes sustained tachycardia (HR 135-145) during hours 18-22, and the Trend Agent identifies rapid lactate increase combined with declining blood pressure. This decomposition aligns with clinical reasoning patterns, potentially fostering trust and adoption.
+One advantage of this architecture is that we can see *why* the model made each prediction. Agent-level weights show which data source mattered most, while temporal attention highlights the critical time points.
+
+For example, a high-risk prediction (probability 0.78) might show Labs Agent contributing 45%—with attention focusing on an elevated lactate (4.2 mmol/L) at hour 20—while the Vitals Agent emphasizes sustained tachycardia (HR 135-145) during hours 18-22. This kind of breakdown matches how clinicians actually think about sepsis, which could help build trust in the system.
 
 ### 5.2 Learning Rate Scaling
 
-The v1→v2→v3 progression demonstrates that naive dataset scaling with fixed hyperparameters led to 6.48% AUROC drop, fully recovered by reducing learning rate from 1×10⁻³ to 1×10⁻⁴. With larger datasets, gradient estimates become more stable, but large learning rates cause optimizer overshooting. This finding emphasizes that hyperparameter configurations optimized for smaller datasets cannot be blindly transferred when scaling data. A prudent approach is to reduce learning rate proportionally to dataset size increase or employ adaptive schedules with warm-up periods.
+The v1→v2→v3 progression tells an important story: simply adding more data without adjusting hyperparameters caused a 6.48% AUROC drop, which we fully recovered by reducing the learning rate from 1×10⁻³ to 1×10⁻⁴. With larger datasets, gradient estimates become more stable, but a learning rate that worked for 725 patients was too aggressive for 3,559 patients—it caused the optimizer to overshoot. The practical takeaway is that hyperparameters tuned on small datasets often need re-tuning when scaling up. A good rule of thumb is to reduce learning rate when increasing dataset size, or use adaptive schedules with warm-up periods.
 
 ### 5.3 Learned Imputation
 
@@ -184,23 +186,33 @@ The achieved AUROC (0.7263) is competitive with PhysioNet Challenge 2019 results
 
 ### 6.1 Limitations
 
-The model was trained on single-center data (MIMIC-IV from Beth Israel Deaconess Medical Center), potentially limiting generalizability to other institutions with different practices, demographics, and documentation patterns. External validation is necessary to assess distribution shift. Sepsis labels were assigned retrospectively using Sepsis-3 criteria based on surrogate markers (SOFA changes, antibiotics, cultures), which may not perfectly align with prospective clinical diagnoses. The limited feature set (24 clinical variables) excludes potentially informative sources like medications, fluid balance, ventilator parameters, demographics, and clinical notes. The fixed 24-hour window excludes patients with shorter ICU stays and prevents immediate predictions. Computational requirements (312,419 parameters) necessitate GPU acceleration for efficient inference. While discrimination is strong, output probabilities are not perfectly calibrated; calibration methods like Platt scaling could improve probability estimates for clinical decision-making.
+The model was trained on data from a single hospital (Beth Israel Deaconess Medical Center via MIMIC-IV), which may limit how well it generalizes to other institutions with different practices and patient populations. External validation would help assess this.
+
+Sepsis labels were assigned retrospectively using Sepsis-3 criteria based on surrogate markers (SOFA changes, antibiotics, cultures), which may not perfectly match how clinicians diagnose sepsis in real-time.
+
+The feature set is limited to 24 clinical variables and excludes potentially useful information like medications, fluid balance, ventilator settings, and clinical notes. The fixed 24-hour window also excludes patients with shorter ICU stays and prevents immediate predictions upon admission.
+
+Finally, the model requires GPU acceleration for efficient inference, and while discrimination is strong, output probabilities are not perfectly calibrated—methods like Platt scaling could improve this.
 
 ### 6.2 Future Directions
 
-The highest priority is external validation on independent datasets, particularly the eICU Collaborative Research Database (200+ hospitals), to quantify performance degradation across institutions and identify systematic biases. Prospective validation through real-world deployment would provide strongest evidence of clinical utility. Feature expansion incorporating medications (antibiotics, vasopressors), demographics, comorbidity indices, and natural language processing of clinical notes could enhance accuracy. Multi-task learning could simultaneously predict related outcomes (septic shock, ARDS, AKI, mortality), leveraging shared representations to improve individual tasks. Counterfactual explanation methods could guide interventions by identifying which abnormal values contribute most to risk. Uncertainty quantification through Bayesian deep learning would provide confidence intervals alongside predictions. Federated learning could enable multi-site training while preserving patient privacy and complying with HIPAA and GDPR regulations.
+The most important next step is external validation on independent datasets, particularly the eICU Collaborative Research Database (200+ hospitals), to see how performance holds up across different institutions. Real-world prospective validation would provide the strongest evidence of clinical usefulness.
+
+Adding more features—medications, demographics, comorbidity scores, and clinical notes processed through NLP—could improve accuracy. Multi-task learning that predicts related outcomes (septic shock, ARDS, AKI, mortality) simultaneously might also help by sharing learned representations.
+
+Other promising directions include counterfactual explanations (identifying which abnormal values contribute most to risk), uncertainty quantification through Bayesian methods (providing confidence intervals), and federated learning (enabling multi-site training while keeping patient data private).
 
 ---
 
 ## 7. Conclusion
 
-This project developed a multi-agent deep learning architecture for early sepsis prediction that addresses the challenge of heterogeneous temporal ICU data through specialized neural network agents. The Vitals Agent (Bi-LSTM with attention), Labs Agent (LSTM with learned imputation), and Trend Agent (Transformer encoder) are combined via attention-weighted meta-learning to produce interpretable predictions.
+This project developed a multi-agent deep learning architecture for early sepsis prediction, using specialized agents for vital signs (Bi-LSTM with attention), laboratory values (LSTM with learned imputation), and temporal trends (Transformer encoder), combined through an attention-weighted meta-learner.
 
-Systematic experimentation on 3,559 MIMIC-IV patients revealed that learning rate adjustment is critical when scaling training data, with reduction from 1×10⁻³ to 1×10⁻⁴ recovering a 5.2% AUROC loss. The optimal configuration achieved AUROC 0.7263 and AUPRC 0.6536, outperforming traditional baselines by 1.6 percentage points. At a high-sensitivity operating point, the model detects 80% of sepsis cases with 47.3% positive predictive value.
+The key finding from experimentation was that learning rate must be adjusted when scaling data—reducing from 1×10⁻³ to 1×10⁻⁴ recovered a 5.2% AUROC drop when moving from 725 to 3,559 patients. The final model achieved AUROC 0.7263 and AUPRC 0.6536, outperforming XGBoost and other baselines by 1.6 percentage points. At high sensitivity (80% recall), it achieves 47.3% positive predictive value.
 
-The architecture provides clinical interpretability through attention mechanisms exposing which data modalities and time points drove predictions, with Labs Agent contributing 41.3% for sepsis-positive cases and Trend Agent contributing 30.9% for non-sepsis predictions, aligning with clinical intuition. While limitations including single-center data, retrospective labeling, and computational requirements must be acknowledged, the demonstrated performance and interpretability suggest that specialized multi-agent architectures represent a promising direction for medical prediction tasks involving heterogeneous data modalities.
+The attention-based design provides interpretability that aligns with clinical reasoning—Labs Agent contributes more for sepsis cases (41.3%) while Trend Agent contributes more for non-sepsis predictions (30.9%). While single-center training and retrospective labeling are limitations, the results suggest that specialized multi-agent architectures are a promising approach for clinical prediction tasks with mixed data types.
 
-The key contribution lies in demonstrating that architectural design choices—specialized agents for different modalities, learned imputation for missingness, and attention-based fusion—can simultaneously improve accuracy and interpretability compared to monolithic models. As healthcare adopts machine learning for clinical decision support, designs that align with clinical reasoning and provide transparent explanations will be essential for earning clinician trust and realizing AI's potential in medicine.
+The main takeaway is that thoughtful architectural choices—matching model components to data characteristics—can improve both accuracy and interpretability compared to one-size-fits-all approaches.
 
 ---
 
