@@ -11,7 +11,7 @@ To use these configurations in `Train_MultiAgent_Model.ipynb`, copy the desired 
 ```python
 CONFIG = {
     # Data
-    'data_file': f"{DATA_PATH}/mimic_processed_small.h5",  # 725 patients
+    'data_file': f"{DATA_PATH}/mimic_processed_medium.h5",  # 725 patients
     'sequence_length': 24,
     'test_size': 0.2,
     'val_size': 0.1,
@@ -249,7 +249,7 @@ CONFIG = {
 
 | Version | Data File | Patients | LR | Dropout | Hidden | Layers | Focal α | AUROC |
 |---------|-----------|----------|-----|---------|--------|--------|---------|-------|
-| v1 | small.h5 | 725 | 1e-3 | 0.3 | 64 | 2 | 0.25 | 0.7391 |
+| v1 | medium.h5 | 725 | 1e-3 | 0.3 | 64 | 2 | 0.25 | 0.7391 |
 | v2 | medium.h5 | 3,559 | 1e-3 | 0.3 | 64 | 2 | 0.25 | 0.6743 |
 | **v3** | **medium.h5** | **3,559** | **1e-4** | **0.3** | **64** | **2** | **0.25** | **0.7263** |
 | v4 | medium.h5 | 3,559 | 1e-4 | 0.3 | 64 | 2 | 0.35 | 0.6912 |
