@@ -24,6 +24,30 @@ Patient Data (24h window)
                   Sepsis Probability
 ```
 
+### How Each Agent Works
+
+**1. Vitals Agent (Bi-LSTM with Attention)**
+- Processes vital signs (HR, BP, Temp, SpO2, Resp Rate)
+- **Bi-directional LSTM**: Reads time series forward and backward to capture context
+- **Attention mechanism**: Focuses on critical time points (e.g., sudden HR spike at hour 18 gets more weight than stable hour 5)
+- Why: Vitals are measured continuously (95%+ complete data), LSTM captures sequential patterns
+
+**2. Labs Agent (LSTM with Learned Imputation)**
+- Processes lab values (Creatinine, Lactate, WBC, BUN, etc.)
+- **Learned imputation**: Instead of filling missing values with mean, learns context-based values (e.g., "if BUN and creatinine are high, lactate is probably elevated too")
+- Why: Labs are sparse (40-60% missing) - simple mean imputation loses patient-specific patterns
+
+**3. Trend Agent (Transformer)**
+- Analyzes rate of change across all 24 features
+- Computes first differences (is lactate rising?) and second differences (is it accelerating?)
+- **Transformer encoder**: Can relate any feature at any time to any other (e.g., "lactate rising AND blood pressure falling together")
+- Why: Sepsis has temporal signatures - not just "high lactate" but "lactate doubled in 6 hours"
+
+**4. Meta-Learner (Attention-Weighted Fusion)**
+- Combines all three agents with learned weights
+- Dynamically decides which agent to trust for each patient (e.g., trust Labs Agent more when recent lab data is available)
+- Final prediction: weighted combination of all agent outputs
+
 ## Results
 
 | Metric | Value |
