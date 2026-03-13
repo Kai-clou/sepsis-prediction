@@ -95,6 +95,10 @@ credentials.json
 *.tar.gz
 *.7z
 
+# Binary documents (keep locally, not in repo)
+*.docx
+*.pptx
+
 # Pytest
 .pytest_cache/
 .coverage

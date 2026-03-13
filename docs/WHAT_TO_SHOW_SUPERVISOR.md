@@ -1,4 +1,4 @@
-# What to Show Maoying - Meeting Guide
+  # What to Show Maoying - Meeting Guide
 
 **Purpose:** Guide for walking supervisor through your project with the RIGHT visualizations and explanations
 
