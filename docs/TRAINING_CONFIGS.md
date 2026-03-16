@@ -141,14 +141,24 @@ All experiments are run from `notebooks/Train_v7_Full_Dataset.ipynb`, which hand
 }
 ```
 
-**Result:** AUROC 0.7702, AUPRC 0.7032, F1 0.714, Sensitivity 0.858, Specificity 0.534
-**Lesson:** 18x more data improves all metrics — data scaling works
+**Sequence-level result:** AUROC 0.7702, AUPRC 0.7032, F1 0.714, Sensitivity 0.858, Specificity 0.534
+**Patient-level result:** AUROC 0.8565, AUPRC 0.7856, F1 0.719, Sensitivity 0.813, Specificity 0.729
+**Lesson:** 18x more data improves all metrics — data scaling works. Patient-level evaluation (max probability per patient) reveals much stronger discrimination than sequence-level metrics suggest.
 **Technical notes:**
 - AMP (mixed precision) enabled for ~2x GPU speedup
 - Uses chunked sequence building to avoid OOM (65K patients too large for RAM)
 - Memory-mapped `.npy` files cached on Drive, copied to local SSD for training speed
 - Checkpoint/resume support for Colab disconnects
 - Total training time: ~260 minutes
+
+**Baseline comparison (single-timepoint models on same test set):**
+| Model | AUROC | AUPRC |
+|-------|-------|-------|
+| Logistic Regression | 0.6773 | 0.5653 |
+| Simple MLP | 0.7434 | 0.6191 |
+| Random Forest | 0.7448 | 0.6311 |
+| XGBoost | 0.7579 | 0.6457 |
+| **Multi-Agent v7** | **0.7702** | **0.7032** |
 
 ---
 
@@ -191,3 +201,9 @@ All experiments are run from `notebooks/Train_v7_Full_Dataset.ipynb`, which hand
    - v7 (65K pts) beats v6 (3.5K pts): 0.7702 vs 0.7423 AUROC (+0.028)
    - All metrics improved: AUPRC 0.7032, F1 0.714, Specificity 0.534
    - Beats clinical scores: qSOFA (0.66-0.70), SIRS (0.64-0.68)
+   - Beats all ML baselines: XGBoost (0.7579), Random Forest (0.7448), MLP (0.7434), LR (0.6773)
+
+5. **Patient-level evaluation reveals stronger performance**
+   - Sequence-level metrics are inflated by sliding windows (~46% positive rate)
+   - Patient-level (max prob per patient): AUROC 0.8565, AUPRC 0.7856, Specificity 0.729
+   - This is the more clinically relevant metric — significantly outperforms clinical scores
