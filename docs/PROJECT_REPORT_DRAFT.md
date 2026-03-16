@@ -528,7 +528,7 @@ A few practical points are worth flagging for anyone thinking about deploying a 
 
 **External validation** is the most important next step. The model was trained and evaluated on data from a single hospital (Beth Israel Deaconess Medical Center). Whether it performs similarly at other institutions — with different patient populations, clinical practices, and documentation habits — is an open question. The eICU Collaborative Research Database (Pollard et al., 2018), covering over 200 US hospitals, would be a natural validation set.
 
-**Training on the full MIMIC-IV database** would substantially increase the cohort beyond 3,559 patients. Based on the learning rate scaling findings from this study, I would expect to need a further learning rate reduction for a much larger dataset. The larger architecture (64 hidden, 2 layers) might also become advantageous with more data to learn from.
+**Training on the full MIMIC-IV database** is currently in progress as v7, scaling from 3,559 to 65,297 patients using the best architecture from v6 (32 hidden, 1 layer). This 18× increase in data will test whether the data scaling benefits observed from v1→v2 continue at larger scale, and whether the smaller architecture remains optimal or whether more capacity becomes beneficial with substantially more training data.
 
 **Expanding the feature set** could meaningfully improve performance. The current model uses 24 clinical variables, but ICU patients generate much more data — medications (especially vasopressors and antibiotics), fluid balance, ventilator settings, demographics, and comorbidity scores are all potentially predictive. Free-text clinical notes, processed through NLP, could add another dimension.
 
@@ -701,7 +701,8 @@ Sepsis/
 │   └── data_config.yaml              # Feature mappings and configurations
 ├── data/
 │   └── processed/mimic_harmonized/
-│       └── mimic_processed_large.h5   # Processed dataset (3,559 patients)
+│       ├── mimic_processed_large.h5   # Processed dataset (3,559 patients, v1-v6)
+│       └── mimic_processed_full.h5    # Full MIMIC-IV (65,297 patients, v7)
 ├── src/
 │   ├── data/
 │   │   ├── harmonization.py           # MIMICHarmonizer class
@@ -710,10 +711,10 @@ Sepsis/
 │   └── models/
 │       └── multi_agent.py             # MultiAgentSepsisPredictor (all agent classes)
 ├── notebooks/
-│   ├── Train_MultiAgent_Model.ipynb       # Single-experiment training
-│   ├── Train_MultiAgent_Model.new.ipynb   # All 6 experiments
+│   ├── Train_v7_Full_Dataset.ipynb        # All 7 experiments with checkpoint/resume
+│   ├── Train_MultiAgent_Model.new.ipynb   # Legacy 6-experiment notebook
 │   └── Complete_Metrics_Analysis.ipynb    # Evaluation and visualisation
-├── models/                            # Saved model checkpoints and results
+├── models/                            # Saved model checkpoints and results (v1-v7)
 └── docs/
     ├── PROJECT_REPORT_DRAFT.md        # This document
     ├── QnA.md                         # Q&A preparation document

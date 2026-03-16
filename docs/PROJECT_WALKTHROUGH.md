@@ -433,18 +433,19 @@ Think of it like a sports team practicing with random players sitting out each s
 
 ### 5.6 Our Training Experiments
 
-We ran 6 experiments, each changing one thing:
+We ran 7 experiments, each changing one thing:
 
 ```
-v1: 725 patients, LR=0.001          → AUROC 0.7391  ✓ Good baseline
-v2: 3559 patients, LR=0.001         → AUROC 0.6743  ✗ CRASHED (LR too high for more data)
-v3: 3559 patients, LR=0.0001        → AUROC 0.7109  ✓ Fixed! (this is our best model)
-v4: Changed focal loss alpha         → AUROC 0.6912  ✗ Worse
-v5: Increased dropout to 0.4         → AUROC 0.7198  ~ Similar
-v6: Smaller model (32 hidden, 1 layer)→ AUROC 0.7204  ~ Similar
+v1: 725 patients, LR=0.001           → AUROC 0.6478  ✓ Small data baseline
+v2: 3559 patients, LR=0.001          → AUROC 0.7136  ✓ More data helps, but LR suboptimal
+v3: 3559 patients, LR=0.0001         → AUROC 0.7361  ✓ Lower LR unlocks potential
+v4: Changed focal loss alpha to 0.35  → AUROC 0.7372  ~ Marginal gain
+v5: Increased dropout to 0.4          → AUROC 0.7348  ~ Similar
+v6: Smaller model (32 hidden, 1 layer)→ AUROC 0.7382  ✓ BEST on 3,559 patients
+v7: Full MIMIC-IV (65,297 patients)   → PENDING (training in progress)
 ```
 
-**Takeaway:** The most impactful change was learning rate. Architecture changes (v4-v6) didn't help much — the model design was already good.
+**Takeaway:** The most impactful change was learning rate (v2→v3). Surprisingly, the smallest model (v6) generalised best — fewer parameters reduced overfitting. v7 tests whether 18x more data improves the best architecture further.
 
 ---
 
@@ -476,7 +477,7 @@ The **area under** this curve = AUROC:
 - **0.9** = excellent
 - **1.0** = perfect (never achieved in practice)
 
-**Our AUROC: 0.7109** — this means if you randomly pick one sepsis patient and one non-sepsis patient, our model gives the sepsis patient a higher risk score **71% of the time**.
+**Our AUROC: 0.7382** (v6, best model) — this means if you randomly pick one sepsis patient and one non-sepsis patient, our model gives the sepsis patient a higher risk score **74% of the time**.
 
 ### 6.3 Sensitivity, Specificity, and the Trade-off
 
@@ -572,7 +573,8 @@ Sepsis/
 ├── data/
 │   └── processed/
 │       └── mimic_harmonized/
-│           └── mimic_processed_large.h5  # The final clean dataset
+│           ├── mimic_processed_large.h5  # 3,559 patients (v1-v6)
+│           └── mimic_processed_full.h5  # 65,297 patients (v7, on Drive only)
 ├── src/
 │   ├── data/
 │   │   ├── harmonization.py      # Raw MIMIC → clean table
@@ -581,11 +583,13 @@ Sepsis/
 │   └── models/
 │       └── multi_agent.py        # All 4 model components
 ├── models/
-│   └── v3_large_lr1e4/           # Saved best model weights
+│   ├── v1/ through v7/           # Saved model weights per experiment
+│   └── all_experiments_comparison.png
 ├── notebooks/
 │   ├── MIMIC_IV_Preprocessing.ipynb         # Data processing pipeline
 │   ├── MIMIC_IV_Preprocessing_Batched.ipynb # Batched version (larger data)
-│   ├── Train_MultiAgent_Model.ipynb         # Model training + evaluation
+│   ├── Train_v7_Full_Dataset.ipynb           # All 7 experiments with checkpoint/resume
+│   ├── Train_MultiAgent_Model.new.ipynb     # Legacy 6-experiment notebook
 │   ├── Complete_Metrics_Analysis.ipynb      # Detailed metrics + agent analysis
 │   ├── Baseline_Comparison.ipynb            # Comparison with simpler models
 │   └── Data_Exploration_Quick.ipynb         # Data exploration
@@ -609,7 +613,7 @@ Sepsis/
 
 ### 8.3 Hardware
 
-Training was done on an **NVIDIA Tesla T4 GPU** (via cloud). Training the best model (v3) took approximately 2.5 hours for 50 epochs.
+Training was done on an **NVIDIA Tesla T4 GPU** (via Google Colab Pro with High-RAM). Training v1-v6 (3,559 patients) takes ~30-40 minutes each. v7 (65,297 patients, full MIMIC-IV) is significantly longer due to 18x more data.
 
 ---
 
@@ -617,7 +621,7 @@ Training was done on an **NVIDIA Tesla T4 GPU** (via cloud). Training the best m
 
 1. **Sepsis kills 11 million people/year.** Every hour of delay increases death risk by 7.6%. Early detection saves lives.
 
-2. **We used MIMIC-IV data** — real ICU records from 3,559 patients, processed into clean hourly measurements (7 vital signs + 17 lab values).
+2. **We used MIMIC-IV data** — real ICU records from up to 65,297 patients, processed into clean hourly measurements (7 vital signs + 17 lab values).
 
 3. **We built a multi-agent system** with three specialists:
    - Vitals Agent (bi-LSTM + attention) for continuous vital signs
@@ -625,11 +629,14 @@ Training was done on an **NVIDIA Tesla T4 GPU** (via cloud). Training the best m
    - Trend Agent (Transformer) for rates of change
    - Meta-Learner combines them with patient-specific weights
 
-4. **Our key finding:** Learning rate must be reduced when scaling data (0.001 → 0.0001 when going from 725 → 3,559 patients).
+4. **We ran 7 experiments** — ablation study testing data scale, learning rate, dropout, focal alpha, and model size. Key findings:
+   - Learning rate must be reduced when scaling data (1e-3 → 1e-4)
+   - Smaller models (32 hidden, 1 layer) generalise better than larger ones
+   - v7 tests the best config on the full MIMIC-IV dataset (65K patients)
 
-5. **Results:** AUROC 0.7109, catching 91.6% of sepsis cases. Matches XGBoost but with the added benefit of **interpretability** — the model can explain which data sources drove each prediction.
+5. **Results:** Best model (v6) achieves AUROC 0.7382, specificity 0.527. Beats clinical scores (qSOFA 0.66-0.70, SIRS 0.64-0.68) with added **interpretability** — the model explains which data sources drove each prediction.
 
-6. **Next:** Train on the full MIMIC-IV dataset and validate on external hospital data.
+6. **v7 (full MIMIC-IV) is training** — will show whether 18x more data improves the best architecture.
 
 ---
 

@@ -120,7 +120,7 @@ This dynamic weighting is what makes the system **interpretable** — you can se
 | What | Where |
 |---|---|
 | Model source code | `src/models/multi_agent.py` |
-| Training + evaluation | `notebooks/Train_MultiAgent_Model.ipynb` (cells 20–32) |
+| Training + evaluation | `notebooks/Train_v7_Full_Dataset.ipynb` (all 7 experiments) |
 | Meta-learner weights visible | `notebooks/Complete_Metrics_Analysis.ipynb` — agent weight analysis section |
 | Baseline comparisons | `notebooks/Baseline_Comparison.ipynb` |
 
@@ -394,7 +394,9 @@ This is a well-known principle in deep learning, but our experiment demonstrated
 | v5 | Dropout 0.3 → 0.4 | 0.7348 | 0.6676 | 0.6955 | 0.847 | 0.508 | Almost identical — model wasn't overfitting |
 | **v6** | Hidden 64→32, Layers 2→1 | **0.7382** | 0.6530 | **0.6999** | 0.843 | **0.527** | **Best! Simpler model generalizes better** |
 
-**Key insight:** v6 (the smallest model) is the best. With only 3,559 patients, a smaller model (32 hidden units, 1 layer) avoids overfitting better than the larger architecture (64 hidden, 2 layers). It also trains 17% faster (34m vs 41m).
+**Key insight:** v6 (the smallest model) is the best on 3,559 patients. A smaller model (32 hidden units, 1 layer) avoids overfitting better than the larger architecture (64 hidden, 2 layers). It also trains 17% faster (34m vs 41m).
+
+**v7 (in progress):** We are now training v6's config on the full MIMIC-IV dataset (65,297 patients, 18× more data) to test whether the data scaling story continues. This uses batch_size=128 and chunked memory-mapped sequence building to handle the larger dataset.
 
 ---
 
