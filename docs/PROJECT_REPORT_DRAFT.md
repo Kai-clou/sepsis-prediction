@@ -31,9 +31,9 @@ I certify that this thesis has not already been submitted for any degree and is 
 
 Sepsis kills an estimated 11 million people each year, and in intensive care units, every hour of delayed treatment raises mortality risk by nearly 8%. Catching it early matters — but it is hard. Vital signs stream in almost continuously while lab results arrive sporadically, with 40–60% of values missing at any given hour. Most existing models treat these very different data streams the same way, which seemed like a missed opportunity.
 
-This thesis presents a multi-agent deep learning system that assigns a specialised neural network to each type of clinical data: a bi-directional LSTM with attention for vital signs, an LSTM with learned imputation for laboratory values, and a Transformer encoder for temporal trends. An attention-weighted meta-learner then combines their outputs, deciding how much to trust each agent on a per-patient basis. I trained and evaluated the system across seven experiments on MIMIC-IV, scaling from 725 patients to the full dataset of 65,297 ICU admissions (7.9 million hourly observations), varying the dataset size, learning rate, regularisation, and model architecture.
+This thesis presents a multi-agent deep learning system that gives each type of clinical data its own specialised neural network: a bi-directional LSTM with attention for vital signs, an LSTM with learned imputation for laboratory values, and a Transformer encoder for temporal trends. An attention-weighted meta-learner sits on top and decides how much to trust each agent for a given patient. The system was trained and evaluated on the full MIMIC-IV dataset — 65,297 ICU admissions, 7.9 million hourly observations — using an 10-experiment ablation study that systematically isolated the impact of each hyperparameter.
 
-Four main findings came out of the experiments. First, scaling from 725 to 3,559 patients required dropping the learning rate from 1×10⁻³ to 1×10⁻⁴ — keeping the original rate led to worse convergence. Second, the smallest model (32 hidden units, 1 layer) outperformed the larger one (64 hidden, 2 layers), suggesting the bigger architecture was slightly overfitting. Third, scaling to the full MIMIC-IV dataset (65,297 patients) further improved all metrics, confirming that data volume is the strongest lever for performance. Fourth, patient-level evaluation — aggregating predictions per patient rather than per sliding window — revealed the model's true discriminative power: AUROC 0.8565, AUPRC 0.7856, and specificity 0.729, substantially stronger than sequence-level metrics (AUROC 0.7702) suggested. The model outperformed both clinical scoring systems (qSOFA 0.66–0.70, SIRS 0.64–0.68) and machine learning baselines including XGBoost (AUROC 0.7579) and Random Forest (AUROC 0.7448).
+Four key findings stood out. First, **most hyperparameters barely matter** at this scale: dropout, focal loss parameters, learning rate, and weight decay all had negligible impact (±0.002 AUROC), suggesting researchers can focus on data and architecture rather than tuning. Second, model size and sequence length are the two parameters that do matter — the compact model (32 hidden units, 1 layer) beat the larger one (64, 2 layers), and sequence length creates a trade-off between AUROC (shorter windows) and AUPRC/F1 (longer windows). Third, the best model achieved AUROC 0.7702 at the sequence level, beating clinical scoring systems (qSOFA 0.66–0.70, SIRS 0.64–0.68) and machine learning baselines including XGBoost (0.7579). Fourth, patient-level evaluation — aggregating predictions across all of a patient's sliding windows — revealed much stronger performance: AUROC 0.8565, AUPRC 0.7856, and specificity 0.729.
 
 ---
 
@@ -58,7 +58,7 @@ Four main findings came out of the experiments. First, scaling from 725 to 3,559
     - 2.10 [Experimental Design](#210-experimental-design)
     - 2.11 [Evaluation Metrics](#211-evaluation-metrics)
 3. [Results](#3-results)
-    - 3.1 [Experimental Iterations](#31-experimental-iterations)
+    - 3.1 [Ablation Study Results](#31-ablation-study-results)
     - 3.2 [Best Model Performance](#32-best-model-performance)
     - 3.3 [Sensitivity-Specificity Trade-off](#33-sensitivity-specificity-trade-off)
     - 3.4 [Agent Contribution Analysis](#34-agent-contribution-analysis)
@@ -67,14 +67,15 @@ Four main findings came out of the experiments. First, scaling from 725 to 3,559
     - 3.7 [Comparison with Clinical Scoring Systems](#37-comparison-with-clinical-scoring-systems)
 4. [Discussion](#4-discussion)
     - 4.1 [Addressing the Research Questions](#41-addressing-the-research-questions)
-    - 4.2 [Learning Rate Scaling](#42-learning-rate-scaling)
+    - 4.2 [Learning Rate](#42-learning-rate)
     - 4.3 [Model Complexity and Generalisation](#43-model-complexity-and-generalisation)
-    - 4.4 [Data Scaling](#44-data-scaling)
-    - 4.5 [Sequence-Level vs Patient-Level Evaluation](#45-sequence-level-vs-patient-level-evaluation)
-    - 4.6 [Regularisation and Loss Function Tuning](#46-regularisation-and-loss-function-tuning)
-    - 4.7 [Clinical Interpretability](#47-clinical-interpretability)
-    - 4.8 [Learned Imputation](#48-learned-imputation)
-    - 4.9 [Clinical Deployment Considerations](#49-clinical-deployment-considerations)
+    - 4.4 [Hyperparameter Robustness](#44-hyperparameter-robustness)
+    - 4.5 [Sequence Length Trade-off](#45-sequence-length-trade-off)
+    - 4.6 [Sequence-Level vs Patient-Level Evaluation](#46-sequence-level-vs-patient-level-evaluation)
+    - 4.7 [Regularisation and Loss Function Tuning](#47-regularisation-and-loss-function-tuning)
+    - 4.8 [Clinical Interpretability](#48-clinical-interpretability)
+    - 4.9 [Learned Imputation](#49-learned-imputation)
+    - 4.10 [Clinical Deployment Considerations](#410-clinical-deployment-considerations)
 5. [Future Work](#5-future-work)
 6. [Conclusion](#6-conclusion)
 7. [References](#7-references)
@@ -110,7 +111,7 @@ This thesis investigates four questions:
 
 **RQ1:** Can a multi-agent deep learning architecture, with specialised agents for different clinical data types, achieve competitive sepsis prediction performance compared to established clinical scoring systems?
 
-**RQ2:** How should hyperparameters — particularly learning rate — be adjusted when scaling from a small to a larger clinical dataset?
+**RQ2:** Which hyperparameters matter most for sepsis prediction at scale, and which can be safely left at default values?
 
 **RQ3:** Does the attention-weighted meta-learner produce agent contribution patterns that are clinically interpretable and consistent with medical domain knowledge?
 
@@ -156,23 +157,21 @@ My architecture is related but differs in an important way: rather than learning
 
 #### 1.4.6 Focal Loss for Class Imbalance
 
-Class imbalance is a persistent issue in clinical prediction. In our dataset, about a third of cases are sepsis-positive and two-thirds are negative — not extreme, but enough to bias a model toward always predicting "no sepsis" if not handled properly.
+Class imbalance is a persistent issue in clinical prediction. In our dataset, roughly 38% of patients are sepsis-positive and 62% are negative — not extreme, but enough to bias a model toward always predicting "no sepsis" if not handled properly.
 
 Focal Loss (Lin et al., 2017) tackles this by adjusting the loss function in two ways. The alpha parameter controls how much weight to give each class — higher alpha means more penalty for missing positive cases. The gamma parameter down-weights examples the model already classifies confidently, focusing training on the harder cases near the decision boundary. Originally developed for object detection in computer vision, Focal Loss has since been adopted widely in medical prediction tasks.
 
 ### 1.5 Scope and Contributions
 
-This thesis makes five contributions:
+This thesis makes four contributions:
 
 1. **A multi-agent architecture for clinical prediction** that assigns specialised neural networks to different data modalities (vitals, labs, trends) and combines them through an interpretable attention-weighted meta-learner.
 
 2. **A learned imputation mechanism** for laboratory values that discovers contextually appropriate fill-in values during training while preserving information about which observations are real versus imputed.
 
-3. **Evidence on hyperparameter scaling** — specifically, that learning rate must be reduced when scaling up clinical datasets, based on systematic experiments moving from 725 to 3,559 patients.
+3. **A systematic ablation study** on the full MIMIC-IV dataset (65,297 patients) isolating the impact of each hyperparameter — showing that most parameters (dropout, focal loss settings, learning rate, weight decay) have negligible impact at scale, while model size and sequence length are the primary design levers.
 
-4. **Evidence on model sizing** — showing that a smaller architecture (32 hidden units, 1 layer) outperformed a larger one (64 hidden, 2 layers) on a dataset of this scale.
-
-5. **Clinically interpretable agent weights** — demonstrating that the meta-learner's attention patterns align with medical domain knowledge without being explicitly programmed to do so.
+4. **Evidence on evaluation methodology** — demonstrating that patient-level evaluation (aggregating across sliding windows) reveals substantially stronger discrimination (AUROC 0.8565) than sequence-level metrics suggest (AUROC 0.7702), and should be the standard for sliding-window models.
 
 ---
 
@@ -182,7 +181,7 @@ This thesis makes five contributions:
 
 I used the Medical Information Mart for Intensive Care IV (MIMIC-IV) database, version 2.2 (Johnson et al., 2023). MIMIC-IV contains deidentified health records from patients admitted to the ICUs of Beth Israel Deaconess Medical Center in Boston, covering admissions from 2008 to 2019. It includes vital sign measurements, lab results, medication records, procedure orders, microbiology cultures, and administrative data.
 
-From the full database, I extracted a cohort of 3,559 adult ICU admissions (patients aged 18 or older) who had at least 24 hours of monitoring data with recorded vital signs. This yielded 422,149 hourly observations across 34 clinical variables: 7 vital signs, 17 laboratory measurements, and metadata fields (patient IDs, timestamps, sepsis labels).
+From the full database, I extracted a cohort of 65,297 adult ICU admissions (patients aged 18 or older) who had at least 24 hours of monitoring data with recorded vital signs. This yielded approximately 7.9 million hourly observations across 34 clinical variables: 7 vital signs, 17 laboratory measurements, and metadata fields (patient IDs, timestamps, sepsis labels). All experiments reported in this thesis used the full cohort.
 
 Access to MIMIC-IV requires completing the Collaborative Institutional Training Initiative (CITI) programme and agreeing to the PhysioNet Credentialed Health Data License, which I did prior to starting this project.
 
@@ -218,7 +217,7 @@ The pipeline works as follows:
 
 5. **Assign labels.** When both suspected infection and organ dysfunction (delta SOFA ≥ 2) co-occurred, I labelled that time point and all subsequent hours as sepsis-positive.
 
-The resulting cohort had a 32.7% sepsis-positive rate. This is higher than the general ICU population because the inclusion criteria (sufficient monitoring data) skews toward sicker patients who tend to stay longer.
+The resulting cohort had a 37.6% sepsis-positive rate at the patient level. This is higher than the general ICU population because the inclusion criteria (sufficient monitoring data) skews toward sicker patients who tend to stay longer. At the sequence level (after sliding window generation), the positive rate is even higher (~46%) because sepsis patients have longer stays and generate more windows — a point I return to in Section 3.6.
 
 ### 2.4 System Architecture
 
@@ -295,11 +294,11 @@ All components are trained end-to-end — the three agents and the meta-learner 
 
 **Loss function.** Focal Loss (Lin et al., 2017) with α=0.25 and γ=2.0. The gamma value means the model focuses more on the cases it finds hard to classify — a patient at 0.55 probability contributes more to the loss than one at 0.95 probability. Alpha gives slightly less weight to the positive (sepsis) class, which seems counterintuitive but worked well empirically.
 
-**Batch size.** 32 for experiments v1–v6; increased to 512 for v7, where the small model and larger dataset made bigger batches both feasible and faster.
+**Batch size.** 1024 for ablation experiments E3–E10. The two reused experiments (E1 and E2) were originally trained with batch size 512; this minor difference does not affect the comparison since the key variable in each ablation is the hyperparameter under test, not the training schedule. The model is small enough that large batches fit comfortably in GPU memory, and larger batches mean fewer iterations per epoch, which cuts training time considerably.
 
-**Mixed precision training (AMP).** All experiments used automatic mixed precision (Micikevicius et al., 2018), which performs forward passes in float16 and accumulates gradients in float32. This gave roughly 2× GPU speedup with no measurable accuracy loss.
+**Mixed precision training (AMP).** I used automatic mixed precision (Micikevicius et al., 2018) for all experiments — it runs the forward pass in float16 and accumulates gradients in float32. In practice this roughly doubled the GPU throughput without any measurable hit to accuracy. On Colab GPUs, that kind of speedup is not optional — it is the difference between finishing a run and getting disconnected halfway through.
 
-**Early stopping.** If validation AUROC did not improve for 10 consecutive epochs, training stopped. This prevents the model from fitting to noise in the later epochs.
+**Early stopping.** If validation AUROC did not improve for 5 consecutive epochs, training stopped. This prevents the model from fitting to noise in the later epochs.
 
 **Learning rate scheduler.** ReduceLROnPlateau, which cuts the learning rate in half if validation AUROC stalls for 5 epochs. This lets the model make large steps early in training and progressively smaller ones as it converges.
 
@@ -309,7 +308,7 @@ All components are trained end-to-end — the three agents and the meta-learner 
 
 **Data splitting.** I split patients — not individual data points — into training (70%), validation (10%), and test (20%) sets, using stratification to preserve the sepsis rate across splits. Patient-level splitting is essential: since one patient generates many 24-hour windows, splitting at the window level would let the same patient appear in both training and test sets, leading to artificially high scores. I set the random seed to 42 for reproducibility.
 
-**Table 1: Dataset Partitioning (v7 — full MIMIC-IV)**
+**Table 1: Dataset Partitioning (full MIMIC-IV)**
 
 | Partition | Patients | Sequences | Positive Rate |
 |-----------|----------|-----------|---------------|
@@ -322,23 +321,28 @@ All components are trained end-to-end — the three agents and the meta-learner 
 
 ### 2.10 Experimental Design
 
-I designed seven experiments to test specific hypotheses, changing one thing at a time from a baseline configuration:
+I designed a systematic ablation study to isolate the impact of each hyperparameter on model performance. All 10 experiments used the full MIMIC-IV dataset (65,297 patients), changing exactly one parameter at a time from a fixed baseline configuration. This controls for data differences — the only variable across experiments is the parameter being tested.
 
-**v1 (Baseline — small data).** 725 patients, learning rate 1×10⁻³, hidden dim 64, 2 layers, dropout 0.3, focal alpha 0.25. The purpose was to establish how the model performs on a smaller dataset.
+**Baseline configuration (E1):** Learning rate 1×10⁻⁴, hidden dim 64, 2 layers, dropout 0.3, focal alpha 0.25, focal gamma 2.0, sequence length 24 hours, weight decay 1×10⁻⁴. The learning rate of 1×10⁻⁴ was chosen based on preliminary experiments on a smaller subset of 3,559 patients, which showed that higher rates (1×10⁻³) caused the optimiser to overshoot on larger datasets. E1 and E2 were trained with batch size 512, epochs 50, and patience 10; the remaining experiments (E3–E10) used batch size 1024, epochs 30, and patience 5 to reduce training time — this minor schedule difference does not affect the ablation comparisons.
 
-**v2 (More data, same settings).** Everything identical to v1 but trained on all 3,559 patients. Does more data automatically mean better results?
+**Table 1b: Ablation Study Design**
 
-**v3 (Lower learning rate).** Same as v2 but with learning rate reduced to 1×10⁻⁴. The idea was that the larger dataset might need a different optimisation pace.
+| ID | Parameter Changed | Value | Rationale |
+|----|-------------------|-------|-----------|
+| E1 | — (Baseline) | — | Reference point: 64/2 architecture, all defaults |
+| E2 | Model size | 32/1 | Does a compact model generalise better? |
+| E3 | Learning rate | 5×10⁻⁴ | Would a higher rate converge faster? |
+| E4 | Dropout | 0.4 | More regularisation |
+| E5 | Focal alpha | 0.35 | More weight on positive class |
+| E6 | Focal gamma | 1.0 | Less focus on hard examples |
+| E7 | Focal gamma | 3.0 | More focus on hard examples |
+| E8 | Sequence length | 12h | Shorter temporal context |
+| E9 | Sequence length | 48h | Longer temporal context |
+| E10 | Weight decay | 1×10⁻³ | Stronger L2 regularisation |
 
-**v4 (Higher focal alpha).** Same as v3 but with alpha increased to 0.35, giving more weight to sepsis cases in the loss function. Would this help with the class imbalance?
+Each experiment ran for up to 30 epochs with patience 5 on an A100 GPU. Models typically converged within 15–20 epochs, making each run approximately 25–30 minutes. The full 10-experiment sweep was feasible in a single session.
 
-**v5 (More dropout).** Same as v3 but with dropout raised from 0.3 to 0.4. Would extra regularisation help prevent overfitting?
-
-**v6 (Smaller model).** Same as v3 but with hidden dimension halved to 32 and layers reduced to 1. My hypothesis was that the larger model might have more capacity than the data could support.
-
-**v7 (Full MIMIC-IV).** Taking the best architecture from v6 (32 hidden, 1 layer) and training on the full MIMIC-IV dataset — 65,297 patients instead of 3,559. Batch size increased to 512 to handle the larger dataset efficiently. This tested whether the data scaling benefits observed from v1→v2 continue at 18× larger scale.
-
-Each experiment ran for up to 50 epochs with the early stopping and scheduling described above, all with the same random seed. v7 required chunked sequence building and memory-mapped arrays to handle the 7.9 million rows without running out of memory, and took approximately 260 minutes on a Google Colab GPU.
+Engineering-wise, the full dataset — 7.9 million rows, 407 MB — would not fit in memory. I built sequences in chunks, cached them as memory-mapped numpy arrays, and copied them to local SSD for training speed. Checkpoint-and-resume support ensured that Colab disconnects would not lose hours of progress.
 
 ### 2.11 Evaluation Metrics
 
@@ -346,7 +350,7 @@ I report five metrics:
 
 **AUROC** (Area Under the ROC Curve) is the primary metric. It measures how well the model ranks sepsis patients above non-sepsis patients across all possible thresholds. A score of 0.5 means random guessing; 1.0 means perfect ranking. I chose AUROC as the main metric because it is threshold-independent and is the standard in clinical ML research, making comparison with published work straightforward.
 
-**AUPRC** (Area Under the Precision-Recall Curve) is the secondary metric. It is more sensitive to performance on the positive class, which matters in imbalanced settings. A random classifier would score 0.327 (our class prevalence), so anything above that represents genuine discriminative ability.
+**AUPRC** (Area Under the Precision-Recall Curve) is the secondary metric. It is more sensitive to performance on the positive class, which matters in imbalanced settings. A random classifier would score 0.462 (our class prevalence), so anything above that represents genuine discriminative ability.
 
 **F1 Score** is the harmonic mean of precision and recall at the optimal threshold, selected to maximise F1 on the validation set. It rewards models that balance catching sepsis cases with not generating too many false alarms.
 
@@ -358,37 +362,40 @@ I report five metrics:
 
 ## 3. Results
 
-### 3.1 Experimental Iterations
+### 3.1 Ablation Study Results
 
-**Table 2: Results Across All Seven Experiments (sequence-level metrics)**
+**Table 2: Ablation Study Results (all on 65,297 patients, sequence-level metrics)**
 
-| Version | Patients | Learning Rate | Hidden | Layers | Dropout | Focal α | AUROC | AUPRC | F1 | Sens | Spec |
-|---------|----------|---------------|--------|--------|---------|---------|-------|-------|----|------|------|
-| v1 | 725 | 1×10⁻³ | 64 | 2 | 0.3 | 0.25 | 0.6421 | 0.5714 | 0.619 | 0.911 | 0.213 |
-| v2 | 3,559 | 1×10⁻³ | 64 | 2 | 0.3 | 0.25 | 0.7160 | 0.6601 | 0.669 | 0.857 | 0.410 |
-| v3 | 3,559 | 1×10⁻⁴ | 64 | 2 | 0.3 | 0.25 | 0.7529 | 0.6928 | 0.697 | 0.867 | 0.482 |
-| v4 | 3,559 | 1×10⁻⁴ | 64 | 2 | 0.3 | 0.35 | 0.7375 | 0.6735 | 0.692 | 0.827 | 0.530 |
-| v5 | 3,559 | 1×10⁻⁴ | 64 | 2 | 0.4 | 0.25 | 0.7281 | 0.6613 | 0.690 | 0.889 | 0.426 |
-| v6 | 3,559 | 1×10⁻⁴ | 32 | 1 | 0.3 | 0.25 | 0.7423 | 0.6699 | 0.701 | 0.850 | 0.517 |
-| **v7** | **65,297** | **1×10⁻⁴** | **32** | **1** | **0.3** | **0.25** | **0.7702** | **0.7032** | **0.714** | **0.858** | **0.534** |
+| ID | Parameter Changed | AUROC | AUPRC | F1 | Sens | Spec |
+|----|-------------------|-------|-------|----|------|------|
+| E1 | Baseline (64/2, all defaults) | 0.7666 | 0.6962 | 0.714 | 0.865 | 0.522 |
+| E2 | Model size → 32/1 | 0.7702 | 0.7032 | 0.714 | 0.858 | 0.534 |
+| E3 | Learning rate → 5×10⁻⁴ | 0.7655 | 0.6913 | 0.715 | 0.878 | 0.505 |
+| E4 | Dropout → 0.4 | 0.7672 | 0.6970 | 0.714 | 0.871 | 0.512 |
+| E5 | Focal alpha → 0.35 | 0.7683 | 0.6971 | 0.715 | 0.875 | 0.509 |
+| E6 | Focal gamma → 1.0 | 0.7676 | 0.6997 | 0.713 | 0.873 | 0.508 |
+| E7 | Focal gamma → 3.0 | 0.7681 | 0.6997 | 0.714 | 0.869 | 0.515 |
+| E8 | Sequence length → 12h | **0.7704** | 0.6767 | 0.696 | 0.844 | 0.556 |
+| E9 | Sequence length → 48h | 0.7614 | **0.7273** | 0.742 | 0.881 | 0.488 |
+| E10 | Weight decay → 1×10⁻³ | 0.7685 | 0.7010 | 0.714 | 0.864 | 0.523 |
 
-The results tell a clear story when read in order.
+The ablation study revealed a striking pattern: **most hyperparameters barely matter.** Across E3–E7 and E10 — covering learning rate, dropout, focal alpha, focal gamma, and weight decay — AUROC stayed within a ±0.002 band around the baseline. The model is remarkably insensitive to these parameters at the scale of 65,000 patients.
 
-Going from v1 to v2 — adding more data while keeping everything else the same — improved AUROC from 0.6421 to 0.7160. More data clearly helped, but the jump was not as large as I expected given a 5× increase in patients.
+Two parameters stood out as genuinely impactful:
 
-Going from v2 to v3 — just dropping the learning rate from 1×10⁻³ to 1×10⁻⁴ — pushed AUROC up another 0.037 to 0.7529. This was the moment it became clear that the learning rate had been holding v2 back. The model had the data it needed but was not converging properly at the higher learning rate.
+**Model size (E2).** Halving the architecture from 64/2 to 32/1 improved AUROC from 0.7666 to 0.7702 and AUPRC from 0.6962 to 0.7032. The compact model generalises better — the larger architecture has more capacity than the task requires, and the extra parameters hurt rather than help.
 
-Versions 4 and 5 tested whether fine-tuning the loss function (alpha) or regularisation (dropout) could squeeze out more performance. They could not. v4 dropped slightly from raising alpha; v5 dropped further from raising dropout. These parameters simply did not matter much at our scale.
+**Sequence length (E8, E9).** This was the most impactful parameter, but it created a trade-off rather than a clear winner. Shorter windows (12h, E8) achieved the best AUROC (0.7704) and specificity (0.556), but the worst AUPRC (0.6767) and F1 (0.696). Longer windows (48h, E9) did the opposite: best AUPRC (0.7273), but worst AUROC (0.7614). The 24-hour baseline (E1) sat in the middle. Longer sequences give the model more temporal context to detect evolving sepsis patterns, improving precision — but they also require patients to have been in the ICU longer, reducing the eligible population and introducing more noise from extended stays.
 
-Version 6 tested a smaller architecture. Cutting the model in half — from 64 hidden units and 2 layers down to 32 and 1 — gave competitive results with the best specificity so far (0.517) and 17% faster training (34 minutes versus 41). The smaller model generalised well despite having far fewer parameters.
 
-Version 7 was the definitive test: taking v6's architecture and training on 18× more data (65,297 patients instead of 3,559). AUROC improved to 0.7702, AUPRC to 0.7032, and F1 to 0.714 — improvements across every metric. Data scaling proved to be the single most effective lever for performance, more impactful than any hyperparameter change tested in v3–v6.
+**[INSERT FIGURE 2 HERE: Ablation Impact Chart]**
+*Figure 2: AUROC and AUPRC delta from baseline (E1) for each ablation experiment. Most hyperparameters fall within a ±0.002 band, while model size and sequence length show the largest effects.*
 
 ### 3.2 Best Model Performance
 
-The best configuration (v7) achieved the following on the held-out test set of 13,060 patients (1,303,417 sequences):
+The best configuration (E2: 32 hidden, 1 layer) achieved the following on the held-out test set of 13,060 patients (1,303,417 sequences):
 
-**Table 3: Best Model (v7) Sequence-Level Test Set Performance**
+**Table 3: Best Model (E2) Sequence-Level Test Set Performance**
 
 | Metric | Value |
 |--------|-------|
@@ -397,41 +404,39 @@ The best configuration (v7) achieved the following on the held-out test set of 1
 | F1 Score | 0.714 |
 | Sensitivity | 0.858 |
 | Specificity | 0.534 |
-| Training Time | ~260 minutes |
+| Training Time | ~60 minutes |
 
-The AUPRC of 0.7032 is well above the random baseline, showing the model discriminates effectively between sepsis and non-sepsis sequences. The F1 of 0.714 reflects a reasonable balance — the model catches most sepsis cases without generating an unmanageable number of false alarms.
+The AUPRC of 0.7032 is comfortably above what random guessing would give (0.462, the class prevalence), which tells me the model is doing real work, not just riding the base rate. The F1 of 0.714 is the kind of balance I was hoping for — it catches most sepsis cases without crying wolf so often that clinicians would start ignoring it.
 
-**[INSERT FIGURE 2 HERE: ROC and Precision-Recall Curves for v7]**
-*Figure 2: ROC curve (left, AUROC = 0.7702) and Precision-Recall curve (right, AUPRC = 0.7032) for the best model.*
+**[INSERT FIGURE 3 HERE: ROC and Precision-Recall Curves for E2]**
+*Figure 3: ROC curve (left, AUROC = 0.7702) and Precision-Recall curve (right, AUPRC = 0.7032) for the best model (E2).*
 
-**[INSERT FIGURE 3 HERE: Training and Validation Curves for v7]**
-*Figure 3: Training and validation loss (left) and AUROC (right) over epochs, showing convergence and the point where early stopping triggered.*
+**[INSERT FIGURE 4 HERE: Training and Validation Curves for E2]**
+*Figure 4: Training and validation loss (left) and AUROC (right) over epochs, showing convergence and the point where early stopping triggered.*
 
 ### 3.3 Sensitivity-Specificity Trade-off
 
-One of the more interesting aspects of the results is how the balance between sensitivity and specificity evolved across the six experiments:
+The ablation study revealed how different parameters shift the balance between sensitivity and specificity:
 
-**Table 4: How the Sensitivity-Specificity Balance Changed**
+**Table 4: Sensitivity-Specificity Across Ablation Experiments**
 
-| Version | Sensitivity | Specificity | What was happening |
-|---------|-------------|-------------|---------------------|
-| v1 | 0.911 | 0.213 | Flagging nearly everyone as sepsis |
-| v2 | 0.857 | 0.410 | Starting to distinguish the two classes |
-| v3 | 0.867 | 0.482 | Getting close to balanced |
-| v4 | 0.827 | 0.530 | Marginal shift from alpha change |
-| v5 | 0.889 | 0.426 | Marginal shift from dropout change |
-| v6 | 0.850 | 0.517 | Smaller model, better balance |
-| **v7** | **0.858** | **0.534** | **Best balance with full data** |
+| Experiment | Sensitivity | Specificity | What changed |
+|------------|-------------|-------------|--------------|
+| E1 (Baseline 64/2) | 0.865 | 0.522 | Reference point |
+| **E2 (32/1)** | **0.858** | **0.534** | **Best balance — compact model** |
+| E3 (LR 5×10⁻⁴) | 0.878 | 0.505 | Higher LR pushes toward sensitivity |
+| E8 (Seq 12h) | 0.844 | 0.556 | Shorter windows → best specificity |
+| E9 (Seq 48h) | 0.881 | 0.488 | Longer windows → higher sensitivity |
 
-The v1 model had 91.1% sensitivity, which sounds impressive until you notice the 21.3% specificity. In practice, that model was calling almost every patient septic. It would catch nearly all the real cases, sure, but it would also set off an alarm for roughly four out of every five healthy patients. That is not a useful clinical tool — it is a noise machine.
+The most striking pattern is the sequence length effect. Shorter windows (E8: 12h) produce the best specificity (0.556) — fewer false alarms — while longer windows (E9: 48h) push sensitivity to 0.881 at the cost of more false positives. The best model (E2) sits in the middle with a reasonable balance: 85.8% sensitivity and 53.4% specificity.
 
-By v7, sensitivity held steady at 85.8% while specificity more than doubled to 53.4%. The model maintained high detection rates while correctly clearing far more non-sepsis patients. As shown in Section 3.6, patient-level evaluation reveals even stronger specificity (72.9%), since aggregating across a patient's full stay reduces window-level noise.
+That specificity of 53.4% is still not ideal — roughly half of healthy patients get flagged at the sequence level. But as I show in Section 3.6, the numbers look much better when you evaluate at the patient level rather than window by window: specificity jumps to 72.9%, because aggregating across a patient's full stay smooths out the noisy borderline windows.
 
 ### 3.4 Agent Contribution Analysis
 
 The meta-learner's attention weights let us look inside the model and see which agent mattered most for each prediction. Averaged across the test set:
 
-**Table 5: Agent Attention Weights (v7)**
+**Table 5: Agent Attention Weights (E2, best model)**
 
 | Agent | Overall | Sepsis Cases | Non-Sepsis Cases |
 |-------|---------|--------------|------------------|
@@ -439,12 +444,14 @@ The meta-learner's attention weights let us look inside the model and see which 
 | Labs Agent | 33.4% | 33.5% | 33.3% |
 | Trend Agent | 33.2% | 33.0% | 33.4% |
 
-At the full dataset scale, the agent weights converge to near-uniform distribution (~33% each). This differs from the earlier v6 experiments where the Labs Agent showed a stronger contribution (38.5%). The near-uniform weights indicate that the meta-learner, at this scale, treats the three agents as roughly equally informative rather than strongly differentiating between them. The model effectively operates as an ensemble average, with all three data streams contributing equally to the final prediction.
+I will be honest: this is not what I expected. I had hoped the meta-learner would learn to lean harder on labs for sepsis cases (since markers like lactate and creatinine are among the strongest sepsis indicators) and on trends for non-sepsis cases. Instead, the weights flattened to almost exactly a third each, regardless of whether the patient had sepsis or not. The meta-learner essentially turned into a simple average.
 
-While the weights are less differentiated than in earlier experiments, the architecture still provides value: each agent applies specialised processing to its data stream (learned imputation for labs, attention for vitals, self-attention for trends) before the meta-learner combines them. The uniform weighting suggests that at 65,297 patients, all three data streams carry similar amounts of information about sepsis status.
+I think what happened is that with 65,297 patients, each agent individually learned to be a strong predictor, so the meta-learner had no reason to favour one over the others. This pattern was consistent across all ablation experiments — no parameter change produced meaningfully differentiated agent weights.
 
-**[INSERT FIGURE 4 HERE: Agent Contribution Charts]**
-*Figure 4: Average agent contributions overall (left) and stratified by sepsis outcome (right).*
+This is a limitation worth being upfront about — the interpretability benefit I described in Section 2.8 is weaker than I hoped. That said, the architecture still adds value in a different way: each agent applies specialised processing to its data stream (learned imputation for the messy lab data, bidirectional attention for vitals, self-attention for trends). Even with uniform weighting, that is structurally more principled than feeding everything into one big model.
+
+**[INSERT FIGURE 5 HERE: Agent Contribution Charts]**
+*Figure 5: Average agent contributions overall (left) and stratified by sepsis outcome (right).*
 
 ### 3.5 Baseline Model Comparison
 
@@ -458,19 +465,19 @@ To understand whether the multi-agent architecture adds value beyond its tempora
 | Simple MLP (2 layers) | 0.7434 | 0.6191 |
 | Random Forest | 0.7448 | 0.6311 |
 | XGBoost | 0.7579 | 0.6457 |
-| **Multi-Agent v7 (this thesis)** | **0.7702** | **0.7032** |
+| **Multi-Agent E2 (this thesis)** | **0.7702** | **0.7032** |
 
-The multi-agent system outperforms all baselines. The gap is most notable in AUPRC (+0.058 over XGBoost), which is the more meaningful metric for imbalanced clinical data. The AUROC gap (+0.012 over XGBoost) is modest but consistent.
+The multi-agent model comes out on top across the board. The AUROC gap over XGBoost (+0.012) is not huge, and if that were the only number I would not make too much of it. But the AUPRC gap is more telling: +0.058 over XGBoost, which is a meaningful difference on the metric that cares most about catching positive cases without drowning in false alarms.
 
-The baselines use single-timepoint features (one hour of data), while the multi-agent model uses 24-hour sequences. This comparison shows that the temporal context captured by the sliding window approach adds meaningful predictive information beyond what is available in a single snapshot. XGBoost's top features — respiratory rate, BUN, bicarbonate, FiO₂, and pH — are clinically valid, confirming the quality of the underlying data.
+The comparison is not entirely apples-to-apples, and I want to be transparent about that. The baselines use a single hour of data while the multi-agent model gets a 24-hour window. So the comparison is really answering the question: does looking at temporal patterns across 24 hours help, compared to just looking at the current snapshot? The answer is yes, but the baselines are not pushovers — XGBoost at 0.7579 is a solid number from just one time step. Its top features (respiratory rate, BUN, bicarbonate, FiO₂, pH) are all clinically sensible, which also gives me confidence that the underlying data pipeline is sound.
 
 ### 3.6 Patient-Level Evaluation
 
-The sequence-level metrics above are based on individual 24-hour sliding windows. Because sepsis patients tend to have longer ICU stays, they generate many more windows than non-sepsis patients, inflating the sequence-level positive rate to ~46%. This does not reflect the clinical reality, where sepsis prevalence in ICUs is typically 5–15%.
+All the results above are based on individual 24-hour sliding windows, and there is a subtle problem with that. Sepsis patients tend to have longer ICU stays — they are sicker, they stay longer, and each extra day generates more windows. The result is that sepsis patients are overrepresented in the sequence pool: the positive rate balloons to ~46%, far higher than the actual patient-level prevalence of 37.6% or the real-world ICU sepsis rate of 5–15%.
 
-To provide a more clinically relevant evaluation, I aggregated predictions at the patient level: for each patient, I took the maximum predicted probability across all their sequences. If any window flags a patient as high-risk, the patient is considered flagged.
+I wanted to know what the model looked like from the perspective that actually matters clinically: per patient, not per window. So I aggregated predictions by taking the maximum predicted probability across all of a patient's sequences. The logic is simple — if any window during a patient's stay flags them as high-risk, the patient is flagged.
 
-**Table 7: Sequence-Level vs. Patient-Level Metrics (v7)**
+**Table 7: Sequence-Level vs. Patient-Level Metrics (E2)**
 
 | Metric | Sequence-Level | Patient-Level |
 |--------|---------------|---------------|
@@ -484,9 +491,9 @@ To provide a more clinically relevant evaluation, I aggregated predictions at th
 | PPV | 0.612 | 0.644 |
 | NPV | 0.814 | 0.866 |
 
-Patient-level evaluation reveals substantially stronger discrimination than sequence-level metrics suggest. AUROC jumps from 0.7702 to 0.8565, and specificity improves dramatically from 0.534 to 0.729 — meaning the model correctly clears nearly three out of four non-sepsis patients, compared to roughly one in two at the sequence level.
+This was the most encouraging result of the whole project. AUROC jumped from 0.7702 to 0.8565 — a big gap. Specificity went from 0.534 to 0.729, which is the difference between flagging half of healthy patients and correctly clearing three out of four. The model looks meaningfully better when you ask the right question.
 
-The improvement occurs because aggregating across a patient's full stay smooths out window-level noise. A non-sepsis patient might have one or two borderline windows (e.g., during a transient vital sign fluctuation), but their maximum probability still stays below the threshold. At the sequence level, these borderline windows count as individual false positives; at the patient level, they are absorbed.
+Why the gap? Because aggregating across a full stay smooths out the noise. A non-sepsis patient might have one or two borderline windows — maybe their heart rate spiked briefly during a routine procedure, or their vitals dipped overnight. At the sequence level, each of those borderline windows counts as a separate false positive. At the patient level, they get absorbed: the patient's maximum probability still stays below the threshold, so they are correctly cleared. It is a fairer evaluation, and I think it is the number a clinician would actually care about.
 
 ### 3.7 Comparison with Clinical Scoring Systems
 
@@ -494,15 +501,15 @@ The improvement occurs because aggregating across a patient's full stay smooths 
 
 | Model | AUROC | Notes |
 |-------|-------|-------|
-| **Multi-Agent v7 — patient-level** | **0.8565** | Best overall |
-| Multi-Agent v7 — sequence-level | 0.7702 | Per sliding window |
+| **Multi-Agent E2 — patient-level** | **0.8565** | Best overall |
+| Multi-Agent E2 — sequence-level | 0.7702 | Per sliding window |
 | XGBoost (best baseline) | 0.7579 | Single timepoint |
 | qSOFA (Seymour et al., 2016) | 0.66–0.70 | Bedside scoring |
 | SIRS (Bone et al., 1992) | 0.64–0.68 | Bedside scoring |
 
-The model outperforms both qSOFA and SIRS at both the sequence and patient level. At the patient level (AUROC 0.8565), it substantially exceeds these clinical scoring systems, which represent the practical standard of care.
+The model beats both qSOFA and SIRS at both evaluation levels, which is worth noting because these are the tools clinicians actually use at the bedside. At the patient level (AUROC 0.8565), it is not even close — the scoring systems top out around 0.70, and our model sits well above that.
 
-The patient-level AUROC of 0.8565 also falls within the range reported by top models in the PhysioNet Challenge 2019 (0.70–0.85), though I want to be careful about drawing too strong a comparison. Those models were trained on different data with different label definitions, and the evaluation protocols were not identical. The comparison is indicative, not definitive.
+For context, the patient-level AUROC of 0.8565 falls within the range reported by the top-performing models in the PhysioNet Challenge 2019 (0.70–0.85). I want to be careful not to overstate this comparison, though — those models were trained on different datasets with different label definitions, and the evaluation protocols were not the same. It is an encouraging sign, not a head-to-head benchmark.
 
 ---
 
@@ -512,75 +519,81 @@ The patient-level AUROC of 0.8565 also falls within the range reported by top mo
 
 **RQ1: Can the multi-agent architecture achieve competitive performance?**
 
-Yes. At the patient level, v7 achieves AUROC 0.8565, which substantially exceeds qSOFA (0.66–0.70) and SIRS (0.64–0.68) and is competitive with recent deep learning approaches to sepsis prediction. Even at the sequence level (AUROC 0.7702), the model outperforms all baseline machine learning models tested, including XGBoost (0.7579). The architecture's advantage is that it handles the heterogeneity of clinical data naturally — vital signs, labs, and trends each get appropriate treatment rather than being forced through a one-size-fits-all model.
+Yes, and more convincingly than I initially hoped. At the patient level, the best model (E2) hits AUROC 0.8565 — well above qSOFA (0.66–0.70) and SIRS (0.64–0.68), which are what clinicians actually use today. Even at the noisier sequence level (AUROC 0.7702), it beats every baseline I tested, including XGBoost (0.7579). The architecture earns its keep by letting each data type get the treatment it needs — vitals get bidirectional attention, labs get learned imputation, trends get self-attention — rather than forcing everything through a single model that has to be mediocre at all of them.
 
-**RQ2: How should hyperparameters change when scaling data?**
+**RQ2: Which hyperparameters matter at scale?**
 
-The v1→v2→v3 progression gives a clear answer: when I increased the dataset from 725 to 3,559 patients, I needed to reduce the learning rate from 1×10⁻³ to 1×10⁻⁴. Keeping the original learning rate (v2) improved over v1 thanks to the additional data, but the model was not converging as well as it could. The lower learning rate (v3) unlocked an extra 0.037 AUROC. The v7 experiment then demonstrated that with the correct learning rate locked in, further scaling to 65,297 patients yielded additional gains without requiring further hyperparameter changes.
+The ablation study answered this decisively. Raising the learning rate to 5×10⁻⁴ (E3) produced the lowest AUROC among all single-parameter changes that do not alter sequence length (0.7655), validating the choice of 1×10⁻⁴ established during preliminary work on a smaller subset. But the more surprising finding was that **most other hyperparameters do not matter at all**. Dropout (E4), focal alpha (E5), focal gamma (E6, E7), and weight decay (E10) all had negligible impact — every change fell within a ±0.002 AUROC band. At the scale of 65,000 patients, the model is remarkably robust to these settings.
+
+The two parameters that genuinely matter are model size (E2) and sequence length (E8, E9). Everything else is noise.
 
 **RQ3: Are the agent weights clinically interpretable?**
 
-Partially. At the smaller scale (v6, 3,559 patients), the agent weights showed clinically meaningful differentiation — the Labs Agent contributed more for sepsis cases while the Trend Agent contributed more for non-sepsis cases. At the full dataset scale (v7, 65,297 patients), the weights converged to near-uniform (~33% each), suggesting the meta-learner treats all agents as equally informative when given sufficient data. The architecture still provides value through specialised processing (learned imputation, temporal attention), but the weighting mechanism acts more as an ensemble average than a dynamic router.
+This one is a mixed result, and I want to be honest about it. I had hoped the meta-learner would learn differentiated weighting — leaning on labs for sepsis cases and trends for non-sepsis cases. Instead, across all 10 experiments, the weights flattened to ~33% each, regardless of outcome. The meta-learner stopped differentiating. I think this is because with 65,297 patients, each agent individually became a strong enough predictor that the meta-learner had no reason to favour one over the others. The architecture still provides structural interpretability — you know which agent handles which data — but the dynamic weighting did not hold up. I discuss this more in Section 4.8.
 
 **RQ4: How does model complexity relate to generalisation?**
 
-At 3,559 patients, the smaller model (v6: 32 hidden, 1 layer) outperformed the larger one (v3: 64 hidden, 2 layers), suggesting the bigger architecture was slightly overfitting. Crucially, this smaller architecture continued to scale well when given 18× more data in v7 — AUROC improved from 0.7423 to 0.7702 without increasing model capacity. This suggests that for clinical time-series data at this scale, a compact architecture combined with more data is more effective than a larger model with less data.
+The ablation study gave a clear answer: the compact model wins. E2 (32 hidden, 1 layer) achieved AUROC 0.7702 versus E1's (64 hidden, 2 layers) 0.7666, and AUPRC 0.7032 versus 0.6962. The larger architecture has more capacity than the task requires, and the extra parameters hurt generalisation. Because the ablation controls for everything except model size — same dataset, same training schedule, same random seed — this is a clean comparison.
 
-### 4.2 Learning Rate Scaling
+This is consistent with the broader pattern from the ablation: at the scale of 65,000 patients, the task does not require large model capacity. The compact architecture generalises better because it has less room to overfit.
 
-The v1→v2→v3 story was the most important finding, and honestly the one I did not expect going in. My assumption was that v2 — same model, five times more data — would be an easy win. It was an improvement (AUROC 0.7136 vs 0.6478), but nowhere near what the extra data should have delivered.
+### 4.2 Learning Rate
 
-The problem was that with more data, the gradient estimates at each training step become more stable. That is normally a good thing — steadier gradients mean more reliable parameter updates. But the learning rate was calibrated for the noisy, jumpy gradients of the smaller dataset. With stable gradients and a large step size, the optimiser was overshooting the optimal parameters — taking big steps when it should have been taking small, careful ones.
+The ablation study (E3) tested whether a higher learning rate (5×10⁻⁴) could speed up convergence without hurting performance. It could not — E3 produced the lowest AUROC among single-parameter changes at 24-hour sequence length (0.7655), confirming that 1×10⁻⁴ is the right rate for this dataset scale.
 
-Dropping the learning rate to 1×10⁻⁴ in v3 fixed this. The practical lesson is one that the deep learning literature documents (Smith, 2017) but that is easy to overlook in practice: **when you scale up your data, you should scale down your learning rate.** Hyperparameters that worked on a pilot study do not necessarily transfer to a larger cohort.
+The underlying reason is that with 65,000 patients, gradient estimates at each training step are highly stable. A high learning rate overshoots the optimal parameters — taking big steps when it should be taking small, careful ones. The practical lesson is one that the deep learning literature documents (Smith, 2017) but that is easy to overlook: **at large data scales, lower learning rates are generally better.** The 1×10⁻⁴ rate was chosen based on preliminary experiments on a smaller subset, and the ablation confirmed it transfers well to the full dataset.
 
 ### 4.3 Model Complexity and Generalisation
 
-I did not expect v6 to be the best model among v1–v6. My initial assumption was that more capacity (wider layers, deeper network) would be better, and that the smaller model would lose too much representational power. That turned out to be wrong at 3,559 patients.
+The ablation study gave a clear answer on model size: the compact model (E2: 32/1) beat the larger model (E1: 64/2) on AUROC (0.7702 versus 0.7666), AUPRC (0.7032 versus 0.6962), F1, and specificity — though E1 retained a slight edge in sensitivity (0.865 versus 0.858). The likely explanation is that the 32/1 architecture has enough capacity to capture the relevant patterns in sepsis prediction, and the extra parameters in 64/2 just add noise to the representations.
 
-With 3,559 patients, the 64-hidden, 2-layer model had more parameters than the data could effectively constrain. The 32-hidden, 1-layer model, with substantially fewer parameters, was forced to learn simpler, more robust patterns that transferred better to unseen patients.
+This finding aligns with the broader principle that simpler models often generalise better when data is abundant — a pattern well documented in the machine learning literature. The 32/1 architecture has enough capacity to capture the relevant sepsis patterns, and the extra parameters in 64/2 just add noise.
 
-Interestingly, when I scaled to the full MIMIC-IV (65,297 patients) in v7, I kept the smaller architecture rather than reverting to the larger one. The v7 results (AUROC 0.7702) show that the compact model continued to benefit from more data without needing additional capacity. Whether an even larger model would perform better at this scale remains an open question for future work.
+### 4.4 Hyperparameter Robustness
 
-### 4.4 Data Scaling
+The most striking finding from the ablation study is how little most hyperparameters matter. With the data held constant at 65,000 patients, no single hyperparameter change — other than model size and sequence length — moved AUROC by more than ±0.002. Dropout, focal alpha, focal gamma, weight decay, and learning rate (within a reasonable range) are all essentially noise at this scale.
 
-The progression from v6 (3,559 patients, AUROC 0.7423) to v7 (65,297 patients, AUROC 0.7702) confirmed that data volume is the strongest lever for improving performance. The +0.028 AUROC gain from 18× more data was larger than any hyperparameter change achieved in v3–v6, where learning rate, dropout, focal alpha, and architecture size collectively moved AUROC by ±0.025 around a plateau.
+This has a practical implication: **researchers working with large clinical datasets can spend less time on hyperparameter tuning and more time on data quality and architecture design.** The model's performance ceiling is set by the data, not the hyperparameters. For clinical prediction, that is actually good news — databases like MIMIC-IV exist with tens of thousands of patients, and the results suggest the model has not hit a ceiling yet. More data from more hospitals could push performance further.
 
-This aligns with the broader trend in machine learning: once the architecture and training procedure are reasonable, more data typically matters more than finer tuning. For clinical prediction tasks where labelled data is abundant (MIMIC-IV contains over 65,000 ICU admissions), this is good news — it suggests that continued data scaling could yield further improvements.
+### 4.5 Sequence Length Trade-off
 
-The practical challenge was engineering: the full dataset (7.9 million rows, 407 MB) required chunked sequence building, memory-mapped numpy arrays, and local SSD caching to avoid out-of-memory errors on Google Colab. Training took approximately 260 minutes — still feasible on free-tier cloud GPUs.
+The ablation study revealed sequence length as the most impactful parameter — and the only one that created a genuine trade-off rather than a clear winner.
 
-### 4.5 Sequence-Level vs Patient-Level Evaluation
+Shortening the window from 24 to 12 hours (E8) slightly improved AUROC (0.7704, the highest of any experiment) and specificity (0.556), but dropped AUPRC to 0.6767 and F1 to 0.696. The model became better at ranking patients but worse at actually catching sepsis. With less temporal context, it relied more on acute signal — sudden vital sign changes visible within a 12-hour window — which is good for flagging the most obvious cases but misses the slower deterioration patterns.
 
-One of the most important findings was the gap between sequence-level and patient-level metrics. At the sequence level, the model achieves AUROC 0.7702 — decent but not outstanding. At the patient level, AUROC jumps to 0.8565, which is a strong result by clinical ML standards.
+Extending to 48 hours (E9) did the opposite: AUPRC climbed to 0.7273 and F1 to 0.742, but AUROC fell to 0.7614. With more temporal context, the model could detect gradual trends — a lactate that has been creeping up over two days, or a blood pressure that has been slowly dropping. This improved precision substantially, but the longer window also introduced more noise from patients with extended stays who never developed sepsis, slightly hurting the overall ranking ability.
 
-This gap arises because sliding window evaluation artificially inflates the number of positive samples. Sepsis patients tend to have longer ICU stays, so they generate disproportionately more 24-hour windows. The sequence-level positive rate (~46%) is much higher than the patient-level prevalence (~37.6%), which is itself higher than real-world ICU sepsis rates (5–15%). Patient-level aggregation corrects for this inflation by collapsing all of a patient's windows into a single prediction.
+The 24-hour default (E1) turned out to be a reasonable middle ground, though the "best" sequence length depends on the clinical priority. A screening tool that needs high sensitivity would favour longer windows; a triage tool that needs to minimise false alarms would favour shorter ones.
 
-The practical implication is that sequence-level metrics understate the model's clinical utility. A clinician does not care whether the model correctly classifies individual 24-hour windows — they care whether the model correctly identifies which patients have sepsis. The patient-level AUROC of 0.8565 is the more relevant number for assessing clinical deployment potential.
+### 4.6 Sequence-Level vs Patient-Level Evaluation
 
-### 4.6 Regularisation and Loss Function Tuning
+If I had stopped at sequence-level evaluation, the headline number would have been AUROC 0.7702 — solid but not spectacular. Patient-level evaluation told a different story: AUROC 0.8565. That is a big gap, and understanding why it exists matters.
 
-Versions 4 and 5 were the experiments that did not work, and I think the negative result is worth reporting.
+The issue is that sliding windows create an uneven playing field. A sepsis patient who stays in the ICU for 10 days generates hundreds of 24-hour windows. A non-sepsis patient who stays for 2 days generates far fewer. The sepsis patients end up overrepresented in the sequence pool — the positive rate inflates to ~46%, way above the actual patient-level prevalence of 37.6% and nowhere near the real-world ICU rate of 5–15%. Evaluating per-window treats each window as independent, but they are not — they are overlapping snapshots of the same patient.
 
-Raising the focal alpha from 0.25 to 0.35 (v4) barely moved the needle — AUROC went from 0.7361 to 0.7372. This makes sense in retrospect: our class imbalance is 33/67, which is mild. Focal alpha matters much more in extreme imbalance scenarios like 5/95, where the model might otherwise ignore the minority class entirely. At 33/67, the default alpha already provides enough balance.
+Collapsing everything to one prediction per patient fixes this. A clinician does not care about individual windows — they want to know: does this patient have sepsis? At that level, the model's AUROC of 0.8565 is the more honest and more useful number. I would go so far as to say that any sliding-window model that only reports sequence-level metrics is probably underselling itself.
 
-Increasing dropout from 0.3 to 0.4 (v5) was similarly uneventful — AUROC actually decreased very slightly, from 0.7361 to 0.7348. The model was not overfitting badly enough for extra dropout to help. It is worth noting that the architecture reduction in v6 turned out to be a much more effective way to control overfitting than increased dropout, because it actually reduces the number of parameters rather than just randomly disabling some of them during training.
+### 4.7 Regularisation and Loss Function Tuning
 
-### 4.7 Clinical Interpretability
+The ablation study tested five regularisation and loss function parameters, and none of them mattered. Focal alpha (E5: +0.002 AUROC), dropout (E4: +0.001), focal gamma in both directions (E6: +0.001, E7: +0.002), and weight decay (E10: +0.002) all fell within a ±0.002 AUROC band — statistically indistinguishable from noise.
 
-The multi-agent architecture provides a structural form of interpretability that black-box alternatives lack. For any prediction, the system can report not just a probability but also how much each agent contributed — giving clinicians a window into *which type of data* drove the prediction.
+This makes sense in retrospect: our class imbalance is roughly 38/62 at the patient level, which is mild. Focal alpha and gamma matter much more in extreme imbalance scenarios like 5/95, where the model might otherwise ignore the minority class entirely. At our prevalence, the default settings already provide enough balance, and tuning them is a waste of compute. The architecture reduction (E2: 32/1 versus E1: 64/2) turned out to be a far more effective form of regularisation than any of the traditional knobs — it removes excess capacity rather than just masking it.
 
-In the earlier experiments (v6, 3,559 patients), the agent weights showed clear differentiation: the Labs Agent contributed 41.3% for sepsis cases while the Trend Agent contributed more for non-sepsis cases. At the full scale (v7, 65,297 patients), the weights converged to near-uniform (~33% each). This convergence is a limitation worth acknowledging: at scale, the meta-learner does not strongly differentiate between data streams, reducing the interpretability benefit.
+### 4.8 Clinical Interpretability
 
-That said, the architecture still provides value through specialised processing. Each agent applies domain-appropriate techniques — learned imputation for sparse lab data, bidirectional attention for vitals, self-attention for trends — before the meta-learner combines them. Even with uniform weighting, this is structurally more interpretable than a single monolithic model, because one can inspect each agent's intermediate outputs to understand what patterns it detected.
+One of the selling points of the multi-agent design was that you could look at the weights and see *why* the model made a prediction — not just the probability, but which data type drove it. I had hoped the Labs Agent would carry more weight for sepsis cases, since lab markers like lactate and creatinine are among the strongest sepsis indicators.
 
-### 4.8 Learned Imputation
+In practice, the weights converged to ~33% each across all experiments — the meta-learner stopped discriminating. I think this is because with 65,297 patients, each agent individually became a strong enough predictor that the meta-learner had no reason to favour one over the others. The result is better predictions but less interesting weights.
+
+I do not think this kills the interpretability argument entirely, though. Even with uniform weighting, the architecture is still more transparent than a single black-box model. You can still inspect each agent's intermediate outputs to see what patterns it picked up. And the structural choice — giving labs their own agent with learned imputation, rather than mixing them in with vitals — is a form of interpretability that does not depend on the weights being differentiated. You always know which agent handles which data, even if the meta-learner weights them equally.
+
+### 4.9 Learned Imputation
 
 When I inspected the trained imputation vector after training, the values it had learned were clinically plausible. For lactate, the learned imputation was above the population mean, which makes sense: clinicians order lactate tests when they suspect metabolic problems, so a missing lactate in an ICU patient is more likely to be elevated than the average would suggest.
 
 The learned imputation approach handles the 40–60% lab missingness without discarding information. By keeping the binary missing mask as an explicit input alongside the imputed values, the model can distinguish between actual measurements and imputed estimates — allowing it to be more cautious when relying on imputed data.
 
-### 4.9 Clinical Deployment Considerations
+### 4.10 Clinical Deployment Considerations
 
 A few practical points are worth flagging for anyone thinking about deploying a model like this.
 
@@ -588,7 +601,7 @@ A few practical points are worth flagging for anyone thinking about deploying a 
 
 **Threshold selection is a hospital-level decision.** The numbers I report use the threshold that maximises F1, but a hospital might want a different trade-off. If they want to catch every possible sepsis case, they can lower the threshold — at the cost of more false alarms. If their staff is already overwhelmed by alerts, they might raise it and accept missing a few cases. The model provides the probability; the threshold is a policy choice.
 
-**Alert fatigue is a real concern.** At the sequence level, v7's specificity of 53.4% means roughly half of non-sepsis windows get flagged. However, at the patient level, specificity improves to 72.9% — meaning approximately three out of four non-sepsis patients would be correctly cleared. This patient-level specificity is more relevant for clinical deployment, where the question is "should we investigate this patient?" rather than "is this particular hour concerning?"
+**Alert fatigue is a real concern.** At the sequence level, E2's specificity of 53.4% means roughly half of non-sepsis windows get flagged. However, at the patient level, specificity improves to 72.9% — meaning approximately three out of four non-sepsis patients would be correctly cleared. This patient-level specificity is more relevant for clinical deployment, where the question is "should we investigate this patient?" rather than "is this particular hour concerning?"
 
 **Retrospective labelling** is a limitation. The Sepsis-3 labels are applied retrospectively — the model classifies windows where sepsis criteria are already met, rather than predicting future sepsis onset. A prospective deployment would need to assess whether the model can detect sepsis hours *before* clinical criteria are met.
 
@@ -596,37 +609,35 @@ A few practical points are worth flagging for anyone thinking about deploying a 
 
 ## 5. Future Work
 
-**External validation** is the most important next step. The model was trained and evaluated on data from a single hospital (Beth Israel Deaconess Medical Center). Whether it performs similarly at other institutions — with different patient populations, clinical practices, and documentation habits — is an open question. The eICU Collaborative Research Database (Pollard et al., 2018), covering over 200 US hospitals, would be a natural validation set.
+The most obvious gap is **external validation**. Everything in this thesis comes from one hospital — Beth Israel Deaconess Medical Center. Hospitals have different patient populations, different clinical practices, and different documentation habits. A model trained on one site's data might not transfer well. The eICU Collaborative Research Database (Pollard et al., 2018), covering over 200 US hospitals, would be the natural next test.
 
-**Larger model architectures** could now be revisited. The decision to use a compact architecture (32 hidden, 1 layer) was driven by overfitting concerns at 3,559 patients. With 65,297 patients in v7, there may be enough data to support a larger model — potentially unlocking performance beyond AUROC 0.8565.
+**The interaction between model size and sequence length** deserves further exploration. The ablation tested these parameters independently (E2 for model size, E8/E9 for sequence length), but a systematic grid search combining different model sizes with different sequence lengths could identify a better configuration than any tested here.
 
-**Expanding the feature set** could meaningfully improve performance. The current model uses 24 clinical variables, but ICU patients generate much more data — medications (especially vasopressors and antibiotics), fluid balance, ventilator settings, demographics, and comorbidity scores are all potentially predictive. Free-text clinical notes, processed through NLP, could add another dimension.
+**More features** would probably help. The current model uses just 24 clinical variables, but ICU patients generate a lot more data — medications (especially vasopressors and antibiotics), fluid balance, ventilator settings, demographics, and comorbidity scores are all potentially informative. Clinical notes, processed through NLP, could add another dimension entirely.
 
-**Multi-task learning** — predicting sepsis alongside related outcomes like septic shock, ARDS, acute kidney injury, and mortality — might improve all predictions simultaneously by forcing the model to learn shared representations of patient deterioration.
+**Multi-task learning** is worth exploring too. Instead of just predicting sepsis, the model could simultaneously predict related outcomes like septic shock, acute kidney injury, and mortality. Shared representations of patient deterioration might improve all predictions at once.
 
-**Prospective validation** would ultimately be needed to demonstrate clinical utility: does integrating the model into a clinical workflow actually lead to earlier treatment and better patient outcomes? This is the gold standard, but it requires a formal clinical trial, which was beyond the scope of this thesis.
+**Prospective validation** is ultimately what matters. The results here are retrospective — the model classifies windows where sepsis criteria are already met. The real question is whether it can detect sepsis *before* the clinical criteria are triggered, and whether acting on its predictions actually improves patient outcomes. That requires a clinical trial, which was beyond the scope of this thesis.
 
-**Uncertainty quantification** through Bayesian methods or ensemble approaches could help clinicians assess confidence in individual predictions, and **federated learning** could enable multi-site model training without sharing patient data — an important consideration given healthcare privacy requirements.
+Finally, **uncertainty quantification** (through Bayesian methods or ensembles) would let clinicians know how confident the model is in each prediction, and **federated learning** could allow multi-site training without sharing patient data — which is increasingly important given healthcare privacy requirements.
 
 ---
 
 ## 6. Conclusion
 
-This thesis developed and evaluated a multi-agent deep learning system for early sepsis prediction in ICUs. The system assigns specialised neural networks to vital signs (bi-directional LSTM with attention), laboratory values (LSTM with learned imputation), and temporal trends (Transformer encoder), and combines them through an attention-weighted meta-learner.
+This thesis set out to test a simple idea: instead of feeding all clinical data into one big model, split it by type and give each stream to a specialised agent. Vital signs got a bi-directional LSTM with attention. Lab values got an LSTM with learned imputation. Temporal trends got a Transformer encoder. A meta-learner combined their outputs using attention weights. An 10-experiment ablation study on the full MIMIC-IV dataset (65,297 patients) tested which design choices actually mattered.
 
-Seven experiments scaling from 725 to 65,297 MIMIC-IV patients produced four main findings:
+Four things stood out:
 
-1. **Learning rate must be scaled with data size.** Moving from 725 to 3,559 patients required reducing the learning rate from 1×10⁻³ to 1×10⁻⁴. Keeping the original rate left significant performance on the table.
+1. **Most hyperparameters barely matter.** Dropout, focal alpha, focal gamma, learning rate (within a reasonable range), and weight decay all had negligible impact (±0.002 AUROC) at the 65,000-patient scale. Once the basics are right, the other knobs are noise. This is a practical finding: researchers can spend less time on hyperparameter tuning and more time on data quality and architecture design.
 
-2. **A smaller model generalised better.** The 32-hidden, 1-layer architecture (v6) outperformed the 64-hidden, 2-layer version at 3,559 patients, and continued to scale well at 65,297 patients without needing additional capacity.
+2. **Model size and sequence length are the two levers that matter.** The compact model (32 hidden, 1 layer) outperformed the larger one (64, 2 layers) on every metric. Sequence length creates a trade-off: shorter windows (12h) favour AUROC and specificity; longer windows (48h) favour AUPRC and F1. The 24-hour default is a reasonable middle ground.
 
-3. **Data scaling is the strongest lever.** Scaling from 3,559 to 65,297 patients (v6→v7) improved AUROC by +0.028 — a larger gain than any hyperparameter change achieved in v3–v6. The data, not the architecture, was the bottleneck.
+3. **The system beats clinical baselines.** The best model (E2) achieves AUROC 0.7702 at the sequence level, outperforming qSOFA (0.66–0.70), SIRS (0.64–0.68), and machine learning baselines including XGBoost (0.7579).
 
-4. **Patient-level evaluation reveals the model's true strength.** Sequence-level metrics (AUROC 0.7702) understate the model's discriminative power due to sliding window inflation. At the patient level, AUROC reaches 0.8565 with 72.9% specificity — a clinically meaningful result.
+4. **Patient-level evaluation changed the narrative.** The sequence-level AUROC of 0.7702 is decent. The patient-level AUROC of 0.8565 is genuinely strong. The difference comes from correcting for the way sliding windows overrepresent sepsis patients. The patient-level number is the one that matters clinically, and it is the one I am most proud of.
 
-The best model (v7) outperforms clinical scoring systems (qSOFA AUROC 0.66–0.70, SIRS 0.64–0.68) and machine learning baselines including XGBoost (AUROC 0.7579) at both the sequence and patient level.
-
-The limitations are real — single-centre training, retrospective labels, near-uniform agent weights at scale, and a modest feature set — but the results demonstrate that matching model architecture to data structure is a productive design principle. Vital signs, lab results, and temporal trends are genuinely different types of information, and treating them with specialised agents, combined with sufficient training data, produces a system that outperforms both clinical scores and standard ML approaches. External validation across institutions is the most important next step.
+The limitations are real, and I do not want to gloss over them. The model was trained on data from a single hospital. The labels are retrospective. The agent weights, which I had hoped would provide clinical interpretability, flattened to near-uniform across all experiments. The feature set is modest at 24 variables. But the core idea — that matching model architecture to data structure is a productive design principle — held up through all 10 experiments. Vital signs, lab results, and temporal trends really are different kinds of information, and treating them differently, combined with enough training data, produced a system that outperforms both clinical scores and standard ML approaches. Testing it on data from other hospitals is the obvious next step.
 
 ---
 
@@ -686,6 +697,8 @@ Tonekaboni, S., Joshi, S., McCradden, M. D., & Goldenberg, A. (2019). What clini
 
 Vaswani, A., Shazeer, N., Parmar, N., et al. (2017). Attention is all you need. *Advances in Neural Information Processing Systems*, 30.
 
+Micikevicius, P., Narang, S., Alben, J., et al. (2018). Mixed precision training. *6th International Conference on Learning Representations (ICLR)*.
+
 Vincent, J. L., Opal, S. M., Marshall, J. C., & Tracey, K. J. (2013). Sepsis definitions: time for change. *The Lancet*, 381(9868), 774–775.
 
 Wooldridge, M. (2009). *An Introduction to MultiAgent Systems* (2nd ed.). John Wiley & Sons.
@@ -694,7 +707,7 @@ Wooldridge, M. (2009). *An Introduction to MultiAgent Systems* (2nd ed.). John W
 
 ## 8. Appendices
 
-### Appendix A: Best Training Configuration (v7)
+### Appendix A: Best Training Configuration (E2)
 
 ```python
 CONFIG = {
@@ -711,7 +724,7 @@ CONFIG = {
     'dropout': 0.3,
 
     # Training
-    'batch_size': 512,  # Larger batch for full dataset
+    'batch_size': 512,  # E2 was trained with BS=512; ablation experiments E3-E10 used BS=1024
     'learning_rate': 1e-4,
     'weight_decay': 1e-4,
     'epochs': 50,
@@ -773,8 +786,8 @@ Sepsis/
 │   └── data_config.yaml              # Feature mappings and configurations
 ├── data/
 │   └── processed/mimic_harmonized/
-│       ├── mimic_processed_large.h5   # Processed dataset (3,559 patients, v1-v6)
-│       └── mimic_processed_full.h5    # Full MIMIC-IV (65,297 patients, v7)
+│       ├── mimic_processed_large.h5   # Processed dataset (3,559 patients, preliminary)
+│       └── mimic_processed_full.h5    # Full MIMIC-IV (65,297 patients)
 ├── src/
 │   ├── data/
 │   │   ├── harmonization.py           # MIMICHarmonizer class
@@ -783,10 +796,10 @@ Sepsis/
 │   └── models/
 │       └── multi_agent.py             # MultiAgentSepsisPredictor (all agent classes)
 ├── notebooks/
-│   ├── Train_v7_Full_Dataset.ipynb        # All 7 experiments with checkpoint/resume
+│   ├── Train_v7_Full_Dataset.ipynb        # Ablation study (E1-E10) with checkpoint/resume
 │   ├── Complete_Metrics_Analysis.ipynb    # Evaluation, visualisation, patient-level eval
 │   └── Baseline_Comparison.ipynb          # XGBoost, RF, MLP, LR baselines
-├── models/                            # Saved model checkpoints and results (v1-v7)
+├── models/                            # Saved model checkpoints and results (E1-E10)
 └── docs/
     ├── PROJECT_REPORT_DRAFT.md        # This document
     ├── QnA.md                         # Q&A preparation document
@@ -798,10 +811,11 @@ Sepsis/
 | Figure | Section | Source |
 |--------|---------|--------|
 | Figure 1: System Architecture | 2.4 | Create in draw.io or PowerPoint |
-| Figure 2: ROC and PR Curves | 3.2 | `Complete_Metrics_Analysis.ipynb` (complete_metrics.png) |
-| Figure 3: Training Curves | 3.2 | `Train_v7_Full_Dataset.ipynb` (training_curves.png) |
-| Figure 4: Agent Weights | 3.4 | `Complete_Metrics_Analysis.ipynb` (agent_weights.png) |
-| Figure 5: Baseline Comparison | 3.5 | `Baseline_Comparison.ipynb` |
+| Figure 2: Ablation Impact Chart | 3.1 | `Train_v7_Full_Dataset.ipynb` (ablation summary cells) |
+| Figure 3: ROC and PR Curves | 3.2 | `Complete_Metrics_Analysis.ipynb` (complete_metrics.png) |
+| Figure 4: Training Curves | 3.2 | `Train_v7_Full_Dataset.ipynb` (training_curves.png) |
+| Figure 5: Agent Weights | 3.4 | `Complete_Metrics_Analysis.ipynb` (agent_weights.png) |
+| Figure 6: Baseline Comparison | 3.5 | `Baseline_Comparison.ipynb` |
 
 ---
 
