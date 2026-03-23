@@ -782,28 +782,25 @@ CONFIG = {
 
 ```
 Sepsis/
-├── config/
-│   └── data_config.yaml              # Feature mappings and configurations
-├── data/
-│   └── processed/mimic_harmonized/
-│       ├── mimic_processed_large.h5   # Processed dataset (3,559 patients, preliminary)
-│       └── mimic_processed_full.h5    # Full MIMIC-IV (65,297 patients)
 ├── src/
-│   ├── data/
-│   │   ├── harmonization.py           # MIMICHarmonizer class
-│   │   ├── sofa_calculator.py         # SOFACalculator class
-│   │   └── labeling.py               # SepsisLabeler class
-│   └── models/
-│       └── multi_agent.py             # MultiAgentSepsisPredictor (all agent classes)
+│   ├── models/
+│   │   └── multi_agent.py                 # MultiAgentSepsisPredictor (all agent classes)
+│   └── data/
+│       ├── harmonization.py               # MIMICHarmonizer class
+│       ├── sofa_calculator.py             # SOFACalculator class
+│       └── labeling.py                    # SepsisLabeler class
 ├── notebooks/
+│   ├── MIMIC_IV_Preprocessing.ipynb       # Initial data preprocessing pipeline
+│   ├── MIMIC_IV_Preprocessing_Batched.ipynb # Batched preprocessing for full dataset
 │   ├── Train_v7_Full_Dataset.ipynb        # Ablation study (E1-E10) with checkpoint/resume
 │   ├── Complete_Metrics_Analysis.ipynb    # Evaluation, visualisation, patient-level eval
 │   └── Baseline_Comparison.ipynb          # XGBoost, RF, MLP, LR baselines
-├── models/                            # Saved model checkpoints and results (E1-E10)
+├── data/
+│   └── processed/mimic_harmonized/
+│       └── mimic_processed_full.h5        # Full MIMIC-IV (65,297 patients, not in repo)
+├── models/                                # Saved model checkpoints and results (E1-E10, not in repo)
 └── docs/
-    ├── PROJECT_REPORT_DRAFT.md        # This document
-    ├── QnA.md                         # Q&A preparation document
-    └── PROJECT_WALKTHROUGH.md         # Detailed project walkthrough
+    └── PROJECT_REPORT_DRAFT.md            # This document
 ```
 
 ### Appendix D: Figure Placement Guide

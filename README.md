@@ -1,127 +1,117 @@
-# Sepsis Prediction - Multi-Agent Deep Learning
+# Multi-Agent Deep Learning System for Early Sepsis Prediction in ICU
 
-Predicting sepsis onset in ICU patients 6 hours early using a multi-agent neural network architecture, trained on MIMIC-IV data.
+**University of Technology Sydney - Honours Thesis (2026)**
 
-**University of Technology Sydney - Undergraduate Project (2026)**
-
-## What This Does
-
-Uses 24 hours of patient vital signs and lab results to predict whether a patient will develop sepsis in the next 6 hours. Three specialist neural networks each analyze different aspects of the data, and a meta-learner combines their predictions.
+Predicting sepsis onset in ICU patients using a multi-agent neural network architecture, trained and evaluated on the full MIMIC-IV dataset (65,297 patients).
 
 ## Architecture
 
 ```
-Patient Data (24h window)
+Patient Data (24h sliding window)
         |
-        +---> Vitals Agent (Bi-LSTM)    -- HR, BP, Temp, SpO2, RR
+        +---> Vitals Agent (Bi-LSTM + Attention)    -- HR, BP, Temp, SpO2, RR
         |
-        +---> Labs Agent (LSTM+Imputation) -- Creatinine, Lactate, WBC, etc.
+        +---> Labs Agent (LSTM + Learned Imputation) -- Creatinine, Lactate, WBC, etc.
         |
-        +---> Trend Agent (Transformer)  -- Rate of change across all features
+        +---> Trend Agent (Transformer Encoder)      -- Rate of change & acceleration
                         |
-                    Meta-Learner (Attention)
+                    Meta-Learner (Attention-Weighted Fusion)
                         |
                   Sepsis Probability
 ```
 
-### How Each Agent Works
-
-**1. Vitals Agent (Bi-LSTM with Attention)**
-- Processes vital signs (HR, BP, Temp, SpO2, Resp Rate)
-- **Bi-directional LSTM**: Reads time series forward and backward to capture context
-- **Attention mechanism**: Focuses on critical time points (e.g., sudden HR spike at hour 18 gets more weight than stable hour 5)
-- Why: Vitals are measured continuously (95%+ complete data), LSTM captures sequential patterns
-
-**2. Labs Agent (LSTM with Learned Imputation)**
-- Processes lab values (Creatinine, Lactate, WBC, BUN, etc.)
-- **Learned imputation**: Instead of filling missing values with mean, learns context-based values (e.g., "if BUN and creatinine are high, lactate is probably elevated too")
-- Why: Labs are sparse (40-60% missing) - simple mean imputation loses patient-specific patterns
-
-**3. Trend Agent (Transformer)**
-- Analyzes rate of change across all 24 features
-- Computes first differences (is lactate rising?) and second differences (is it accelerating?)
-- **Transformer encoder**: Can relate any feature at any time to any other (e.g., "lactate rising AND blood pressure falling together")
-- Why: Sepsis has temporal signatures - not just "high lactate" but "lactate doubled in 6 hours"
-
-**4. Meta-Learner (Attention-Weighted Fusion)**
-- Combines all three agents with learned weights
-- Dynamically decides which agent to trust for each patient (e.g., trust Labs Agent more when recent lab data is available)
-- Final prediction: weighted combination of all agent outputs
+- **Vitals Agent**: Bi-directional LSTM with attention for continuously monitored vital signs (95%+ complete)
+- **Labs Agent**: LSTM with learned imputation for sparse laboratory values (40-60% missing)
+- **Trend Agent**: Transformer encoder for temporal derivatives (rate of change + acceleration)
+- **Meta-Learner**: Attention-weighted fusion combining all three agent embeddings
 
 ## Results
 
-| Metric | Value |
-|--------|-------|
-| AUROC | 0.7263 |
-| AUPRC | 0.6536 |
-| Sensitivity | 92.3% |
-| Specificity | 34.0% |
-| F1 Score | 0.6709 |
+### Best Model (E2: 32 hidden, 1 layer)
 
-### vs. Traditional ML (same data, same split)
+| Metric | Sequence-Level | Patient-Level |
+|--------|---------------|---------------|
+| AUROC | 0.7689 | **0.8571** |
+| AUPRC | 0.7008 | **0.7844** |
+| F1 | 0.714 | 0.718 |
+| Sensitivity | 0.867 | 0.776 |
+| Specificity | 0.518 | **0.766** |
+
+### vs. Baselines (same data, same split)
 
 | Model | AUROC | AUPRC |
 |-------|-------|-------|
-| Logistic Regression | ~0.65 | ~0.50 |
-| Random Forest | ~0.67 | ~0.53 |
-| XGBoost | 0.6876 | 0.5480 |
-| **Multi-Agent (ours)** | **0.7263** | **0.6536** |
+| Logistic Regression | 0.6773 | 0.5653 |
+| Random Forest | 0.7448 | 0.6311 |
+| XGBoost | 0.7579 | 0.6457 |
+| **Multi-Agent (ours)** | **0.7689** | **0.7008** |
 
 ### vs. Clinical Scores (published benchmarks)
 
-| Score | AUROC | Source |
-|-------|-------|--------|
-| SIRS | 0.64 | Singer et al. JAMA 2016 |
-| qSOFA | 0.66 (ICU patients) | Seymour et al. JAMA 2016 |
-| MEWS | 0.67-0.72 | Meta-analyses |
-| **Multi-Agent (ours)** | **0.7263** | This project |
+| Score | AUROC |
+|-------|-------|
+| SIRS (Bone et al., 1992) | 0.64-0.68 |
+| qSOFA (Seymour et al., 2016) | 0.66-0.70 |
+| **Multi-Agent — patient-level** | **0.8571** |
 
-*Note: Clinical score AUROCs are from published literature on different patient populations and serve as approximate reference points, not direct same-data comparisons. For rigorous comparison, see Traditional ML results above (same data, same split).*
+### Key Ablation Findings (10-experiment study)
+
+- Most hyperparameters (dropout, focal loss, weight decay) barely matter at scale (+-0.002 AUROC)
+- Model size and sequence length are the two levers that actually matter
+- Compact model (32/1) outperforms larger model (64/2) on all metrics
 
 ## Project Structure
 
 ```
 Sepsis/
 ├── src/
-│   ├── models/multi_agent.py       # Model architecture
-│   └── data/                       # Preprocessing (harmonization, SOFA, labeling)
+│   ├── models/multi_agent.py                  # Multi-agent model architecture
+│   └── data/                                  # Preprocessing pipeline
+│       ├── harmonization.py                   #   MIMIC-IV variable mapping & alignment
+│       ├── sofa_calculator.py                 #   Hourly SOFA score computation
+│       └── labeling.py                        #   Sepsis-3 label generation
 ├── notebooks/
-│   ├── MIMIC_IV_Preprocessing_Batched.ipynb  # Data pipeline
-│   ├── Train_MultiAgent_Model.ipynb          # Training
-│   ├── Baseline_Comparison.ipynb             # XGBoost, RF, LR, MLP
-│   └── Complete_Metrics_Analysis.ipynb       # Full evaluation
-├── config/                         # Feature configs
-├── docs/                           # Documentation
-└── models/                         # Saved weights & results (not in repo)
+│   ├── MIMIC_IV_Preprocessing.ipynb           # Initial data preprocessing
+│   ├── MIMIC_IV_Preprocessing_Batched.ipynb   # Batched preprocessing for full dataset
+│   ├── Train_v7_Full_Dataset.ipynb            # Ablation study (E1-E10) training
+│   ├── Complete_Metrics_Analysis.ipynb        # Evaluation & visualisation
+│   └── Baseline_Comparison.ipynb             # XGBoost, RF, MLP, LR baselines
+├── docs/
+│   ├── PROJECT_REPORT_DRAFT.md                # Thesis draft
+│   ├── PROJECT_WALKTHROUGH.md                 # Project walkthrough guide
+│   ├── QnA.md                                 # Q&A preparation
+│   └── THESIS_CRITERIA.md                     # Assessment criteria reference
+├── models/                                    # Saved weights & results (not in repo)
+└── requirements.txt
 ```
 
 ## Data
 
-- **Source:** MIMIC-IV (PhysioNet) - real de-identified ICU records
-- **Cohort:** 3,559 patients, 422,149 hourly observations (subset of full MIMIC-IV)
+- **Source:** MIMIC-IV v2.2 (Johnson et al., 2023) via PhysioNet
+- **Cohort:** 65,297 adult ICU admissions, ~7.9 million hourly observations
 - **Sepsis definition:** Sepsis-3 (suspected infection + SOFA increase >= 2)
-- **Features:** 7 vitals + 17 lab values
+- **Features:** 7 vital signs + 17 laboratory measurements = 24 clinical variables
+- **Split:** 70% train / 10% val / 20% test (patient-level, stratified)
 
-This project uses a subset of MIMIC-IV for initial validation. The full database contains 50,000+ ICU patients. Future work includes scaling to the complete dataset.
-
-Data files are not included in this repo (requires PhysioNet credentials).
+Data files are not included (requires [PhysioNet credentialed access](https://physionet.org/)).
 
 ## How to Run
 
 Notebooks are designed to run on **Google Colab** with data stored in Google Drive.
 
 1. Get MIMIC-IV access via [PhysioNet](https://physionet.org/)
-2. Run `MIMIC_IV_Preprocessing_Batched.ipynb` to process raw data
-3. Run `Train_MultiAgent_Model.ipynb` to train the model
+2. Run preprocessing notebooks to generate `.h5` files
+3. Run `Train_v7_Full_Dataset.ipynb` for ablation training (E1-E10)
 4. Run `Complete_Metrics_Analysis.ipynb` for evaluation
+5. Run `Baseline_Comparison.ipynb` for baseline comparison
 
 ## Tech Stack
 
-Python, PyTorch, scikit-learn, pandas, Google Colab (GPU)
+Python, PyTorch, scikit-learn, XGBoost, pandas, Google Colab (A100/T4 GPU)
 
 ## References
 
-- Singer M, et al. *The Third International Consensus Definitions for Sepsis and Septic Shock (Sepsis-3).* JAMA. 2016;315(8):801-810.
-- Seymour CW, et al. *Assessment of Clinical Criteria for Sepsis: For the Third International Consensus Definitions for Sepsis and Septic Shock (Sepsis-3).* JAMA. 2016;315(8):762-774.
-- Johnson A, et al. *MIMIC-IV (v2.0).* PhysioNet. 2022.
+- Singer M, et al. *The Third International Consensus Definitions for Sepsis and Septic Shock (Sepsis-3).* JAMA. 2016.
+- Johnson A, et al. *MIMIC-IV, a freely accessible electronic health record dataset.* Scientific Data. 2023.
 - Lin TY, et al. *Focal Loss for Dense Object Detection.* IEEE ICCV. 2017.
+- Seymour CW, et al. *Assessment of Clinical Criteria for Sepsis.* JAMA. 2016.
