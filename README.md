@@ -66,13 +66,4 @@ Notebooks are designed to run on **Google Colab** with data stored in Google Dri
 4. Run `Complete_Metrics_Analysis.ipynb` for evaluation
 5. Run `Baseline_Comparison.ipynb` for baseline comparison
 
-## Tech Stack
 
-Python, PyTorch, scikit-learn, XGBoost, pandas, Google Colab (A100/T4 GPU)
-
-## References
-
-- Singer M, et al. *The Third International Consensus Definitions for Sepsis and Septic Shock (Sepsis-3).* JAMA. 2016.
-- Johnson A, et al. *MIMIC-IV, a freely accessible electronic health record dataset.* Scientific Data. 2023.
-- Lin TY, et al. *Focal Loss for Dense Object Detection.* IEEE ICCV. 2017.
-- Seymour CW, et al. *Assessment of Clinical Criteria for Sepsis.* JAMA. 2016.
