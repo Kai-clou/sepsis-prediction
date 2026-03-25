@@ -6,20 +6,6 @@ Predicting sepsis onset in ICU patients using a multi-agent neural network archi
 
 ## Architecture
 
-```
-Patient Data (24h sliding window)
-        |
-        +---> Vitals Agent (Bi-LSTM + Attention)    -- HR, BP, Temp, SpO2, RR
-        |
-        +---> Labs Agent (LSTM + Learned Imputation) -- Creatinine, Lactate, WBC, etc.
-        |
-        +---> Trend Agent (Transformer Encoder)      -- Rate of change & acceleration
-                        |
-                    Meta-Learner (Attention-Weighted Fusion)
-                        |
-                  Sepsis Probability
-```
-
 - **Vitals Agent**: Bi-directional LSTM with attention for continuously monitored vital signs (95%+ complete)
 - **Labs Agent**: LSTM with learned imputation for sparse laboratory values (40-60% missing)
 - **Trend Agent**: Transformer encoder for temporal derivatives (rate of change + acceleration)
@@ -59,31 +45,6 @@ Patient Data (24h sliding window)
 - Most hyperparameters (dropout, focal loss, weight decay) barely matter at scale (+-0.002 AUROC)
 - Model size and sequence length are the two levers that actually matter
 - Compact model (32/1) outperforms larger model (64/2) on all metrics
-
-## Project Structure
-
-```
-Sepsis/
-├── src/
-│   ├── models/multi_agent.py                  # Multi-agent model architecture
-│   └── data/                                  # Preprocessing pipeline
-│       ├── harmonization.py                   #   MIMIC-IV variable mapping & alignment
-│       ├── sofa_calculator.py                 #   Hourly SOFA score computation
-│       └── labeling.py                        #   Sepsis-3 label generation
-├── notebooks/
-│   ├── MIMIC_IV_Preprocessing.ipynb           # Initial data preprocessing
-│   ├── MIMIC_IV_Preprocessing_Batched.ipynb   # Batched preprocessing for full dataset
-│   ├── Train_v7_Full_Dataset.ipynb            # Ablation study (E1-E10) training
-│   ├── Complete_Metrics_Analysis.ipynb        # Evaluation & visualisation
-│   └── Baseline_Comparison.ipynb             # XGBoost, RF, MLP, LR baselines
-├── docs/
-│   ├── PROJECT_REPORT_DRAFT.md                # Thesis draft
-│   ├── PROJECT_WALKTHROUGH.md                 # Project walkthrough guide
-│   ├── QnA.md                                 # Q&A preparation
-│   └── THESIS_CRITERIA.md                     # Assessment criteria reference
-├── models/                                    # Saved weights & results (not in repo)
-└── requirements.txt
-```
 
 ## Data
 
