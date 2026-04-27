@@ -381,13 +381,20 @@ class MultiAgentSepsisPredictor(nn.Module):
         all_features_dim: int = 24,
         hidden_dim: int = 64,
         num_layers: int = 2,
-        dropout: float = 0.3
+        dropout: float = 0.3,
+        disabled_agents: Optional[List[str]] = None
     ):
         super(MultiAgentSepsisPredictor, self).__init__()
 
         self.vitals_dim = vitals_dim
         self.labs_dim = labs_dim
         self.all_features_dim = all_features_dim
+        self.hidden_dim = hidden_dim
+        self.disabled_agents = set(disabled_agents) if disabled_agents else set()
+        valid_names = {'vitals', 'labs', 'trend'}
+        invalid = self.disabled_agents - valid_names
+        if invalid:
+            raise ValueError(f"Unknown agent name(s) in disabled_agents: {invalid}. Valid: {valid_names}")
 
         # Initialize agents
         self.vitals_agent = VitalsAgent(
@@ -446,10 +453,14 @@ class MultiAgentSepsisPredictor(nn.Module):
             - 'labs_embedding': Labs agent representation
             - 'trend_embedding': Trend agent representation
         """
-        # Get agent embeddings
-        vitals_emb = self.vitals_agent(vitals, vitals_mask)
-        labs_emb = self.labs_agent(labs, labs_missing_mask)
-        trend_emb = self.trend_agent(all_features)
+        # Get agent embeddings (skip computation for disabled agents and substitute zeros)
+        embed_dim = self.hidden_dim // 2
+        batch_size = vitals.size(0)
+        zero_emb = torch.zeros(batch_size, embed_dim, device=vitals.device, dtype=vitals.dtype)
+
+        vitals_emb = zero_emb if 'vitals' in self.disabled_agents else self.vitals_agent(vitals, vitals_mask)
+        labs_emb = zero_emb if 'labs' in self.disabled_agents else self.labs_agent(labs, labs_missing_mask)
+        trend_emb = zero_emb if 'trend' in self.disabled_agents else self.trend_agent(all_features)
 
         # Meta-learner combines agents
         logits, agent_weights = self.meta_learner([vitals_emb, labs_emb, trend_emb])
